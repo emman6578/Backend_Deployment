@@ -70,7 +70,7 @@ export const loginUser = async (email: string, password: string) => {
       role: user.role.name,
     },
     JWT_SECRET!,
-    { expiresIn: `1m` }
+    { expiresIn: `${SESSION_EXPIRATION_DAYS}d` }
   );
 
   // Format user data according to requirements
