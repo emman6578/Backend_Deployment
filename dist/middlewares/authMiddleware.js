@@ -1,4 +1,8 @@
 "use strict";
+// import { Request, Response, NextFunction } from "express";
+// import jwt from "jsonwebtoken";
+// import { PrismaClient, User } from "@prisma/client";
+// import expressAsyncHandler from "express-async-handler";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -23,29 +27,38 @@ if (!JWT_SECRET) {
 }
 exports.authenticateToken = (0, express_async_handler_1.default)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
-    // Get token from HTTP-only cookie instead of Authorization header
+    console.log("[auth] → Entering authenticateToken middleware");
+    // Get token from HTTP-only cookie
     const token = req.cookies.auth_token;
+    console.log("[auth]   cookies:", req.cookies);
     if (!token) {
+        console.log("[auth]   ✘ No token provided");
         throw new Error("Authentication failed: No token provided: UNAUTHORIZED");
     }
-    // Decode JWT token
+    console.log("[auth]   ✓ Token found");
     try {
+        // Verify JWT signature and extract payload
         const payload = jsonwebtoken_1.default.verify(token, JWT_SECRET);
-        // Verify session exists and is valid
+        console.log("[auth]   ✓ JWT verified:", payload);
+        // Fetch session from DB
         const session = yield prisma.session.findUnique({
             where: { id: payload.sessionId },
             include: {
                 user: {
-                    include: {
-                        role: true,
-                        stores: true,
-                        position: true,
-                    },
+                    include: { role: true, stores: true, position: true },
                 },
             },
         });
+        console.log("[auth]   session lookup:", session);
+        // Check session validity
+        if (!session) {
+            console.log("[auth]   ✘ No session record found");
+        }
+        else if (session.expires < new Date()) {
+            console.log("[auth]   ✘ Session expired at", session.expires);
+        }
         if (!session || session.expires < new Date()) {
-            // Clear the invalid cookie
+            console.log("[auth]   → Clearing cookie due to invalid/expired session");
             res.clearCookie("auth_token", {
                 httpOnly: true,
                 path: "/",
@@ -54,16 +67,18 @@ exports.authenticateToken = (0, express_async_handler_1.default)((req, res, next
             });
             throw new Error("Session expired or invalid: SESSION_EXPIRED");
         }
-        // Attach user to request with formatted data
+        // Attach user info
+        console.log("[auth]   ✓ Session valid, attaching user to request");
         req.user = session.user;
         req.user.roleName = session.user.role.name;
-        req.user.storeNames = session.user.stores.map((store) => store.name);
+        req.user.storeNames = session.user.stores.map((s) => s.name);
         req.user.positionName = (_a = session.user.position) === null || _a === void 0 ? void 0 : _a.name;
+        console.log("[auth] → Passing control to next()");
         next();
     }
     catch (error) {
-        console.error("JWT verification error:", error); // Debug log
-        // Clear the invalid cookie
+        console.error("[auth]   JWT/session error:", error);
+        console.log("[auth]   → Clearing cookie due to verification error");
         res.clearCookie("auth_token", {
             httpOnly: true,
             path: "/",
