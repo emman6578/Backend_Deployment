@@ -1,6 +1,7 @@
 import {
   read,
   read_PSR_from_HRMS,
+  syncAndReadPSR,
 } from "@controllers/psr.controller/psr.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
@@ -22,6 +23,13 @@ router.get(
   authenticateToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   read_PSR_from_HRMS
+);
+
+router.post(
+  "/sync",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  syncAndReadPSR
 );
 
 // //Create

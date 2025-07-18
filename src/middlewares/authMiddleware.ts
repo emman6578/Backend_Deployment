@@ -24,9 +24,6 @@ export const authenticateToken = expressAsyncHandler(
     // Get token from HTTP-only cookie instead of Authorization header
     const token = req.cookies.auth_token;
 
-    console.log("Cookies received:", req.cookies); // Debug log
-    console.log("Auth token:", token); // Debug log
-
     if (!token) {
       throw new Error("Authentication failed: No token provided: UNAUTHORIZED");
     }

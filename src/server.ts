@@ -109,3 +109,14 @@ server.use(errorHandler);
 server.listen(port, () => {
   console.log(`[Server] running on port http://localhost:${port}`);
 });
+
+//TODO: Deployment: Replace the existing module aliases on package.json
+// "_moduleAliases": {
+//   "@controllers": "dist/controllers",
+//   "@config": "dist/config",
+//   "@middlewares": "dist/middlewares",
+//   "@models": "dist/models",
+//   "@routes": "dist/routes",
+//   "@services": "dist/services",
+//   "@utils": "dist/utils"
+// },

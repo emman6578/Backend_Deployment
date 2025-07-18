@@ -8,6 +8,7 @@ const router = (0, express_1.Router)();
 //Read
 router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), psr_controller_1.read);
 router.get("/hrms", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), psr_controller_1.read_PSR_from_HRMS);
+router.post("/sync", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), psr_controller_1.syncAndReadPSR);
 // //Create
 // router.post(
 //   "/",

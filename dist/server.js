@@ -40,7 +40,7 @@ server.use(express_1.default.json());
 const allowedOrigins = [
     process.env.FRONTEND_URL || "http://localhost:3000",
     "http://localhost:3000", // Add this explicitly for development
-    "https://your-production-domain.com", // Add your actual production domain
+    "https://zyre.vercel.app", // Add your actual production domain
 ];
 server.use((0, cors_1.default)({
     origin: function (origin, callback) {
@@ -93,3 +93,13 @@ server.use(ErrorHandler_1.errorHandler);
 server.listen(port, () => {
     console.log(`[Server] running on port http://localhost:${port}`);
 });
+//TODO: Deployment: Replace the existing module aliases on package.json
+// "_moduleAliases": {
+//   "@controllers": "dist/controllers",
+//   "@config": "dist/config",
+//   "@middlewares": "dist/middlewares",
+//   "@models": "dist/models",
+//   "@routes": "dist/routes",
+//   "@services": "dist/services",
+//   "@utils": "dist/utils"
+// },

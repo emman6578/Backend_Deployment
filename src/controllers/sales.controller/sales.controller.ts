@@ -104,62 +104,19 @@ export const read_SalesReturn = expressAsyncHandler(
     const searchConditions = search
       ? {
           OR: [
-            {
-              referenceNumber: {
-                contains: search as string,
-                mode: "insensitive",
-              },
-            },
-            {
-              returnReason: { contains: search as string, mode: "insensitive" },
-            },
-            { notes: { contains: search as string, mode: "insensitive" } },
-            // Search in related originalSale fields
+            { transactionID: { contains: search as string } }, // ← was referenceNumber
+            { returnReason: { contains: search as string } },
+            { notes: { contains: search as string } },
             {
               originalSale: {
                 OR: [
-                  {
-                    referenceNumber: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    genericName: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    brandName: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    companyName: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    customerName: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    batchNumber: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    supplierName: {
-                      contains: search as string,
-                      mode: "insensitive",
-                    },
-                  },
+                  { transactionID: { contains: search as string } }, // ← was referenceNumber
+                  { genericName: { contains: search as string } },
+                  { brandName: { contains: search as string } },
+                  { companyName: { contains: search as string } },
+                  { customerName: { contains: search as string } },
+                  { batchNumber: { contains: search as string } },
+                  { supplierName: { contains: search as string } },
                 ],
               },
             },
@@ -199,7 +156,6 @@ export const read_SalesReturn = expressAsyncHandler(
     if (returnReason) {
       filterConditions.returnReason = {
         contains: returnReason as string,
-        mode: "insensitive",
       };
     }
 
@@ -242,9 +198,11 @@ export const read_SalesReturn = expressAsyncHandler(
     try {
       // Get total count for pagination
       const totalItems = await prisma.salesReturn.count({
-        where: whereConditions,
+        where: {
+          ...searchConditions,
+          ...filterConditions,
+        },
       });
-
       // Fetch paginated results with relations
       const salesReturns = await prisma.salesReturn.findMany({
         where: whereConditions,
@@ -298,8 +256,60 @@ export const read_SalesReturn = expressAsyncHandler(
       const hasNextPage = pageNum < totalPages;
       const hasPreviousPage = pageNum > 1;
 
+      const summaryStats = await prisma.salesReturn.aggregate({
+        where: {
+          ...searchConditions,
+          ...filterConditions,
+        },
+        _sum: {
+          refundAmount: true,
+          returnQuantity: true,
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      // Get status-specific counts
+      const statusCounts = await prisma.salesReturn.groupBy({
+        by: ["status"],
+        where: {
+          ...searchConditions,
+          ...filterConditions,
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      // Get restockable items count
+      const restockableCount = await prisma.salesReturn.count({
+        where: {
+          ...searchConditions,
+          ...filterConditions,
+          restockable: true,
+        },
+      });
+
+      // Process status counts into a more usable format
+      const statusMap = statusCounts.reduce((acc, item) => {
+        acc[item.status] = item._count.id;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Create summary object
+      const summary = {
+        totalReturns: summaryStats._count.id || 0,
+        totalRefunds: summaryStats._sum.refundAmount || 0,
+        pendingReturns: statusMap["PENDING"] || 0,
+        restockableItems: restockableCount || 0,
+        completedReturns:
+          (statusMap["APPROVED"] || 0) + (statusMap["COMPLETED"] || 0),
+      };
+
       const response = {
         data: salesReturns,
+        summary,
         pagination: {
           currentPage: pageNum,
           totalPages,

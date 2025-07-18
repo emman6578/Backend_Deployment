@@ -967,6 +967,8 @@ model PSR {
   psrCode        String    @unique
   fullName       String
   areaCode String?
+
+  sourceHash   String?
   
   // Employment Information
   status         PSRStatus @default(ACTIVE) 
