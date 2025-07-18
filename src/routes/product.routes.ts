@@ -1,0 +1,64 @@
+import {
+  create,
+  read,
+  readById,
+  readProductToUpdate,
+  update,
+  // remove,
+} from "@controllers/product.controller/product.controller";
+import { authenticateToken } from "@middlewares/authMiddleware";
+import { authorizeRoles } from "@middlewares/roleMiddleware";
+import { uploadProductImages } from "@middlewares/uploadMiddleware";
+
+import { Router } from "express";
+
+const router = Router();
+
+//Create
+router.post(
+  "/",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  uploadProductImages.array("images", 50), // This expects field name 'images' for all files
+  create
+);
+//Read
+router.get(
+  "/",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  read
+);
+
+router.get(
+  "/:id",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  readById
+);
+
+router.get(
+  "/product/:id",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  readProductToUpdate
+);
+
+//Update
+router.put(
+  "/:id",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  uploadProductImages.array("images", 1), // Expect image field
+  update
+);
+
+// //Delete
+// router.delete(
+//   "/:id",
+//   authenticateToken,
+//   authorizeRoles(["SUPERADMIN", "ADMIN"]),
+//   remove
+// );
+
+export default router;
