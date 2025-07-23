@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.read_SalesReturn = exports.createSalesReturn = exports.read = exports.create = void 0;
+exports.create_update_payment = exports.read_SalesReturn = exports.createSalesReturn = exports.read = exports.create = void 0;
 const client_1 = require("@prisma/client");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
@@ -278,6 +278,9 @@ exports.read_SalesReturn = (0, express_async_handler_1.default)((req, res) => __
             message: "Internal server error while fetching sales returns",
         });
     }
+}));
+exports.create_update_payment = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    (0, SuccessHandler_1.successHandler)("Create Update Payment", res, "POST", "Payment Updated Successfully");
 }));
 // export const update = expressAsyncHandler(
 //   async (req: AuthRequest, res: Response) => {

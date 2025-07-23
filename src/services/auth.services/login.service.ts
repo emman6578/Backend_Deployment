@@ -29,7 +29,7 @@ export const loginUser = async (email: string, password: string) => {
   });
 
   if (!user) {
-    throw new Error("User not found. Please register first.");
+    throw new Error("Please register first.");
   }
 
   // Validate the password
@@ -88,5 +88,6 @@ export const loginUser = async (email: string, password: string) => {
     token: jwtToken,
     user: formattedUser,
     expires: expirationDate,
+    sessionId: session.id,
   };
 };

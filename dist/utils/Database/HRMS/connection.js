@@ -15,10 +15,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMySQLPool = getMySQLPool;
 exports.closeMySQLPool = closeMySQLPool;
 exports.withConnection = withConnection;
+exports.withTransaction = withTransaction;
 const promise_1 = __importDefault(require("mysql2/promise"));
 let pool = null;
 function getMySQLPool() {
     if (!pool) {
+        // Validate required env vars
+        if (!process.env.DB_HOST ||
+            !process.env.DB_USER ||
+            !process.env.DB_PASSWORD ||
+            !process.env.DB_NAME) {
+            throw new Error("Missing required database environment variables");
+        }
         pool = promise_1.default.createPool({
             host: process.env.DB_HOST,
             port: parseInt(process.env.DB_PORT || "3306"),
@@ -28,6 +36,20 @@ function getMySQLPool() {
             waitForConnections: true,
             connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || "10"),
             queueLimit: 0,
+            // Only use properties that exist in mysql2 PoolOptions
+            multipleStatements: false,
+            charset: "utf8mb4",
+            timezone: "Z",
+            supportBigNumbers: true,
+            bigNumberStrings: true,
+        });
+        // Error event listener
+        pool.on("connection", (connection) => {
+            console.log(`New connection established as id ${connection.threadId}`);
+        });
+        // Cast to any to avoid TypeScript issues with event names
+        pool.on("error", (err) => {
+            console.error("Database pool error:", err);
         });
     }
     return pool;
@@ -35,21 +57,63 @@ function getMySQLPool() {
 function closeMySQLPool() {
     return __awaiter(this, void 0, void 0, function* () {
         if (pool) {
-            yield pool.end();
-            pool = null;
+            try {
+                yield pool.end();
+                pool = null;
+            }
+            catch (error) {
+                console.error("Error closing database pool:", error);
+            }
         }
     });
 }
-// For individual connection management
+// Enhanced connection function with basic retry
 function withConnection(fn) {
     return __awaiter(this, void 0, void 0, function* () {
         const pool = getMySQLPool();
-        const connection = yield pool.getConnection();
+        let connection = null;
         try {
+            connection = yield pool.getConnection();
+            // Test connection before use
+            yield connection.ping();
             return yield fn(connection);
         }
+        catch (error) {
+            console.error("Database operation failed:", error);
+            throw error;
+        }
         finally {
-            connection.release();
+            if (connection) {
+                connection.release();
+            }
         }
     });
 }
+// Transaction helper
+function withTransaction(fn) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return withConnection((connection) => __awaiter(this, void 0, void 0, function* () {
+            yield connection.beginTransaction();
+            try {
+                const result = yield fn(connection);
+                yield connection.commit();
+                return result;
+            }
+            catch (error) {
+                yield connection.rollback();
+                throw error;
+            }
+        }));
+    });
+}
+// Graceful shutdown
+process.on("SIGTERM", () => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("Received SIGTERM, closing database connections...");
+    yield closeMySQLPool();
+    process.exit(0);
+}));
+process.on("SIGINT", () => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("Received SIGINT, closing database connections...");
+    yield closeMySQLPool();
+    process.exit(0);
+}));

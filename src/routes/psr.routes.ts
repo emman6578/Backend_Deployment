@@ -4,6 +4,7 @@ import {
   syncAndReadPSR,
 } from "@controllers/psr.controller/psr.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -28,6 +29,7 @@ router.get(
 router.post(
   "/sync",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   syncAndReadPSR
 );
@@ -36,6 +38,7 @@ router.post(
 // router.post(
 //   "/",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   create
 // );
@@ -50,6 +53,7 @@ router.post(
 // router.put(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   update
 // );
@@ -57,6 +61,7 @@ router.post(
 // router.delete(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   remove
 // );

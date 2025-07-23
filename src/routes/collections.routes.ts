@@ -3,6 +3,7 @@ import {
   read,
 } from "@controllers/collections.controller/collections.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -13,6 +14,7 @@ const router = Router();
 router.post(
   "/",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create
 );
@@ -35,6 +37,7 @@ router.get(
 // //Update
 // router.put(
 //   "/:id",
+//  validateCsrfToken,
 //   authenticateToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   update
@@ -44,6 +47,7 @@ router.get(
 // router.delete(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   remove
 // );

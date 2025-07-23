@@ -350,6 +350,17 @@ export const read_SalesReturn = expressAsyncHandler(
   }
 );
 
+export const create_update_payment = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    successHandler(
+      "Create Update Payment",
+      res,
+      "POST",
+      "Payment Updated Successfully"
+    );
+  }
+);
+
 // export const update = expressAsyncHandler(
 //   async (req: AuthRequest, res: Response) => {
 //     successHandler("Updated Sales", res, "PUT", "Sales updated successfully");

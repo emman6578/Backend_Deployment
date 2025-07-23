@@ -14,6 +14,7 @@ import {
   update_status_purchase_return,
 } from "@controllers/purchase.controller/purchase.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -24,6 +25,7 @@ const router = Router();
 router.post(
   "/",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create
 );
@@ -31,6 +33,7 @@ router.post(
 router.post(
   "/return",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create_purchase_return
 );
@@ -38,6 +41,7 @@ router.post(
 router.put(
   "/return/status",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   update_status_purchase_return
 );
@@ -84,6 +88,7 @@ router.get(
 router.put(
   "/verify/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   verify
 );
@@ -91,6 +96,7 @@ router.put(
 router.put(
   "/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   update
 );
@@ -98,6 +104,7 @@ router.put(
 router.delete(
   "/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   remove
 );

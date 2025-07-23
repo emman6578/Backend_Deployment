@@ -38,7 +38,7 @@ const port = process.env.PORT || 3001;
 server.use(express_1.default.json());
 // Configure CORS BEFORE other middlewares - this is crucial
 const allowedOrigins = [
-    process.env.FRONTEND_URL || "http://localhost:3000",
+    process.env.FRONTEND_URL,
     "http://localhost:3000", // Add this explicitly for development
     "https://zyre.vercel.app", // Add your actual production domain
 ];
@@ -56,7 +56,13 @@ server.use((0, cors_1.default)({
     },
     credentials: true, // Important for cookies to work cross-origin
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRF-Token",
+        "x-csrf-token",
+    ],
     exposedHeaders: ["Set-Cookie"],
 }));
 // Add cookie parser middleware AFTER CORS
@@ -93,13 +99,3 @@ server.use(ErrorHandler_1.errorHandler);
 server.listen(port, () => {
     console.log(`[Server] running on port http://localhost:${port}`);
 });
-//TODO: Deployment: Replace the existing module aliases on package.json
-// "_moduleAliases": {
-//   "@controllers": "dist/controllers",
-//   "@config": "dist/config",
-//   "@middlewares": "dist/middlewares",
-//   "@models": "dist/models",
-//   "@routes": "dist/routes",
-//   "@services": "dist/services",
-//   "@utils": "dist/utils"
-// },

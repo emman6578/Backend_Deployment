@@ -39,7 +39,7 @@ const loginUser = (email, password) => __awaiter(void 0, void 0, void 0, functio
         },
     });
     if (!user) {
-        throw new Error("User not found. Please register first.");
+        throw new Error("Please register first.");
     }
     // Validate the password
     const isPasswordValid = yield bcrypt_1.default.compare(password, user.password);
@@ -87,6 +87,7 @@ const loginUser = (email, password) => __awaiter(void 0, void 0, void 0, functio
         token: jwtToken,
         user: formattedUser,
         expires: expirationDate,
+        sessionId: session.id,
     };
 });
 exports.loginUser = loginUser;

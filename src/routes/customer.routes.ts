@@ -18,6 +18,7 @@ router.get(
 // router.post(
 //   "/",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   create
 // );
@@ -32,6 +33,7 @@ router.get(
 // router.put(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   update
 // );
@@ -39,6 +41,7 @@ router.get(
 // router.delete(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   remove
 // );

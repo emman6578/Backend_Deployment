@@ -4,6 +4,7 @@ import {
   getCurrentUser,
 } from "@controllers/user.controller/user.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -26,6 +27,7 @@ router.get(
 router.put(
   "/:userId/assign",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   updateUser
 );

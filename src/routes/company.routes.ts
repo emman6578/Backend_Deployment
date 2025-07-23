@@ -6,6 +6,7 @@ import {
   readById,
 } from "@controllers/product.controller/company.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -16,6 +17,7 @@ const router = Router();
 router.post(
   "/",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create
 );
@@ -23,6 +25,7 @@ router.post(
 router.get(
   "/",
   authenticateToken,
+
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   read
 );
@@ -37,6 +40,7 @@ router.get(
 router.put(
   "/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   update
 );
@@ -44,6 +48,7 @@ router.put(
 router.delete(
   "/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   remove
 );

@@ -11,6 +11,7 @@ router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authori
 // router.post(
 //   "/",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   create
 // );
@@ -24,6 +25,7 @@ router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authori
 // router.put(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   update
 // );
@@ -31,6 +33,7 @@ router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authori
 // router.delete(
 //   "/:id",
 //   authenticateToken,
+//  validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   remove
 // );

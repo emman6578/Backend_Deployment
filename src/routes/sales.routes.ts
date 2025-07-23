@@ -1,5 +1,6 @@
 import {
   create,
+  create_update_payment,
   createSalesReturn,
   read,
   read_SalesReturn,
@@ -7,6 +8,7 @@ import {
   // readById,
 } from "@controllers/sales.controller/sales.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 
 import { Router } from "express";
@@ -17,6 +19,7 @@ const router = Router();
 router.post(
   "/",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create
 );
@@ -24,10 +27,19 @@ router.post(
 router.post(
   "/return",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   createSalesReturn
 );
-//Read
+//Create Update Payment
+router.post(
+  "/update-payment",
+  authenticateToken,
+  validateCsrfToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  create_update_payment
+);
+//Read657812
 router.get(
   "/",
   authenticateToken,
@@ -52,6 +64,7 @@ router.get(
 // router.put(
 //   "/:id",
 //   authenticateToken,
+// validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   update
 // );
@@ -60,6 +73,7 @@ router.get(
 // router.delete(
 //   "/:id",
 //   authenticateToken,
+//   validateCsrfToken,
 //   authorizeRoles(["SUPERADMIN", "ADMIN"]),
 //   remove
 // );

@@ -4,9 +4,9 @@ import {
   readById,
   readProductToUpdate,
   update,
-  // remove,
 } from "@controllers/product.controller/product.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
+import { validateCsrfToken } from "@middlewares/csrfMiddleware";
 import { authorizeRoles } from "@middlewares/roleMiddleware";
 import { uploadProductImages } from "@middlewares/uploadMiddleware";
 
@@ -18,10 +18,12 @@ const router = Router();
 router.post(
   "/",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   uploadProductImages.array("images", 50), // This expects field name 'images' for all files
   create
 );
+
 //Read
 router.get(
   "/",
@@ -48,6 +50,7 @@ router.get(
 router.put(
   "/:id",
   authenticateToken,
+  validateCsrfToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   uploadProductImages.array("images", 1), // Expect image field
   update
