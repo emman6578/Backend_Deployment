@@ -132,8 +132,8 @@ model Session {
   token        String   @unique // Session token
   expires      DateTime
 
-   csrfToken            String?
-  csrfTokenExpiresAt   DateTime?
+  csrfToken           String?
+  csrfTokenExpiresAt  DateTime?
   
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       Int
