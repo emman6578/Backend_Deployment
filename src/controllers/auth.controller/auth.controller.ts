@@ -68,7 +68,6 @@ export const refreshCsrfToken = expressAsyncHandler(
     }
 
     const newToken = await createOrRefreshCsrfToken(req.sessionId);
-    const expiresAt = new Date(Date.now() + CSRF_TOKEN_EXPIRY);
 
     // Update cookie
     res.cookie("csrf_token", newToken, {
@@ -81,8 +80,6 @@ export const refreshCsrfToken = expressAsyncHandler(
 
     res.json({
       csrfToken: newToken,
-      expiresAt,
-      message: "CSRF token refreshed successfully",
     });
   }
 );

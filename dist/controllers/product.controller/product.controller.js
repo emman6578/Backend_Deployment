@@ -136,6 +136,7 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
     const { page = 1, limit = 1000, search, categoryId, brandId, companyId, genericId, isActive, sortBy, sortOrder, } = req.query;
     // List of fields we allow clients to sort by:
     const validSortFields = [
+        "id",
         "createdAt",
         "updatedAt",
         "averageCostPrice",
@@ -169,7 +170,7 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
         genericId: genericId ? parseInt(genericId, 10) : undefined,
         isActive: isActive !== undefined ? isActive === "true" : undefined,
         // **Only use the client's sort params if present**; else default to newest created
-        sortBy: sortBy || "createdAt",
+        sortBy: sortBy || "id",
         sortOrder: sortOrder || "desc",
     };
     const result = yield (0, read_service_1.products)(filters);

@@ -10,6 +10,7 @@ import {
   inventory_update,
   UpdateInventoryBatchRequest,
 } from "@services/inventory.services/update.service";
+import { checkAndUpdateExpiredBatches } from "@utils/ExpiredChecker/expiredProducts";
 import { successHandler } from "@utils/SuccessHandler/SuccessHandler";
 import { Request, Response } from "express";
 import expressAsyncHandler from "express-async-handler";
@@ -39,7 +40,7 @@ export const create = expressAsyncHandler(
     }
 
     successHandler(
-      batches,
+      null,
       res,
       "POST",
       `Successfully created ${batches.length} inventory batch(es) with their items`
@@ -58,6 +59,9 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
     (req.query.sortOrder as string)?.toLowerCase() === "asc" ? "asc" : "desc"; // default to desc
 
   const status = req.query.status as string;
+
+  // NEW: Check and update expired batches before fetching
+  await checkAndUpdateExpiredBatches();
 
   const { inventories, pagination, summary } = await inventory_list(
     page,
@@ -182,7 +186,6 @@ export const restore = expressAsyncHandler(
     );
   }
 );
-
 //=====================================END OF CRUD==================================================================================================================================================================
 export const expiredProducts = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -246,9 +249,7 @@ export const lowStockProducts = expressAsyncHandler(
     }
   }
 );
-
 //===================================================================================================================================================================================================
-
 //INVENTORY MOVEMENT CONTROLLER
 export const inventoryMovementREAD = expressAsyncHandler(
   async (req: Request, res: Response) => {
@@ -313,7 +314,6 @@ export const inventoryMovementUPDATE = expressAsyncHandler(
     );
   }
 );
-
 //INVENTORY ITEMS FETCH FUNCTION
 export const read_Inventory_Items = expressAsyncHandler(
   async (req: Request, res: Response) => {

@@ -11,7 +11,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.read_purchaseEditLists_service = void 0;
 const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma = new client_1.PrismaClient({
+    omit: {
+        purchaseEdit: {
+            id: true,
+        },
+    },
+});
 const read_purchaseEditLists_service = (params) => __awaiter(void 0, void 0, void 0, function* () {
     const { page = "1", limit = "10", search = "", sortField = "editedAt", sortOrder = "desc", } = params;
     // Parse pagination parameters
@@ -83,9 +89,7 @@ const read_purchaseEditLists_service = (params) => __awaiter(void 0, void 0, voi
             include: {
                 editedBy: {
                     select: {
-                        id: true,
                         fullname: true,
-                        email: true,
                     },
                 },
             },

@@ -62,7 +62,6 @@ exports.refreshCsrfToken = (0, express_async_handler_1.default)((req, res) => __
         throw new Error("Authentication required: SESSION_MISSING");
     }
     const newToken = yield (0, csrf_service_1.createOrRefreshCsrfToken)(req.sessionId);
-    const expiresAt = new Date(Date.now() + csrf_service_1.CSRF_TOKEN_EXPIRY);
     // Update cookie
     res.cookie("csrf_token", newToken, {
         httpOnly: true,
@@ -73,8 +72,6 @@ exports.refreshCsrfToken = (0, express_async_handler_1.default)((req, res) => __
     });
     res.json({
         csrfToken: newToken,
-        expiresAt,
-        message: "CSRF token refreshed successfully",
     });
 }));
 // Background job to clean up expired CSRF tokens

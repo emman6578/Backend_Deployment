@@ -29,6 +29,7 @@ const collections_routes_1 = __importDefault(require("@routes/collections.routes
 //Error Handler
 const ErrorHandler_1 = require("@utils/ErrorHandler/ErrorHandler");
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 //env config
 dotenv_1.default.config();
 //constants
@@ -71,6 +72,32 @@ server.use((0, cookie_parser_1.default)());
 server.use((0, helmet_1.default)({
     crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
+// Rate limiting configuration
+const limiter = (0, express_rate_limit_1.default)({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: {
+        error: "Too many requests from this IP, please try again later.",
+        retryAfter: "5 minutes",
+    },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    // Skip rate limiting for certain conditions (optional)
+    skip: (req) => {
+        const token = req.cookies["auth_token"];
+        return token;
+    },
+});
+server.use("/api/v1/auth/login", (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000, //15 minutes
+    max: 5, // stricter for login
+    message: {
+        error: "Too many requests from this IP, please try again later, after 15 minutes.",
+        retryAfter: "15 minutes",
+    },
+}));
+// Apply general rate limiting to all routes
+server.use(limiter);
 server.use("/uploads", express_1.default.static("public"));
 //routes import
 server.use("/api/v1/auth", auth_routes_1.default);

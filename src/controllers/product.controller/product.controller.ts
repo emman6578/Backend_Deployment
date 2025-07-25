@@ -173,6 +173,7 @@ export const read = expressAsyncHandler(
 
     // List of fields we allow clients to sort by:
     const validSortFields = [
+      "id",
       "createdAt",
       "updatedAt",
       "averageCostPrice",
@@ -214,7 +215,7 @@ export const read = expressAsyncHandler(
       genericId: genericId ? parseInt(genericId as string, 10) : undefined,
       isActive: isActive !== undefined ? isActive === "true" : undefined,
       // **Only use the client's sort params if present**; else default to newest created
-      sortBy: (sortBy as string) || "createdAt",
+      sortBy: (sortBy as string) || "id",
       sortOrder: (sortOrder as "asc" | "desc") || "desc",
     };
 

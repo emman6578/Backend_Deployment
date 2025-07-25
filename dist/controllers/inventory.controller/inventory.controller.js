@@ -21,6 +21,7 @@ const low_stock_service_1 = require("@services/inventory.services/low-stock.serv
 const read_service_2 = require("@services/inventory.services/read.service");
 const read_by_id_service_1 = require("@services/inventory.services/read_by_id.service");
 const update_service_1 = require("@services/inventory.services/update.service");
+const expiredProducts_1 = require("@utils/ExpiredChecker/expiredProducts");
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const prisma = new client_1.PrismaClient();
@@ -43,7 +44,7 @@ exports.create = (0, express_async_handler_1.default)((req, res) => __awaiter(vo
             });
         }
     }
-    (0, SuccessHandler_1.successHandler)(batches, res, "POST", `Successfully created ${batches.length} inventory batch(es) with their items`);
+    (0, SuccessHandler_1.successHandler)(null, res, "POST", `Successfully created ${batches.length} inventory batch(es) with their items`);
 }));
 // READ Inventorys (with pagination, filtering)
 exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -55,6 +56,8 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
     const sortField = req.query.sortField; // e.g., "invoice date"
     const sortOrder = ((_b = req.query.sortOrder) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === "asc" ? "asc" : "desc"; // default to desc
     const status = req.query.status;
+    // NEW: Check and update expired batches before fetching
+    yield (0, expiredProducts_1.checkAndUpdateExpiredBatches)();
     const { inventories, pagination, summary } = yield (0, read_service_2.inventory_list)(page, limit, search, sortField, sortOrder, status);
     (0, SuccessHandler_1.successHandler)({ inventories, pagination, summary }, res, "GET", "Inventorys fetched successfully");
 }));

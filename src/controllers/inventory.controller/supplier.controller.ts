@@ -9,31 +9,73 @@ const prisma = new PrismaClient();
 // CREATE Supplier
 export const create = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
-    successHandler("Create Supplier", res, "POST", "Created Supplier");
+    let { name, contact, address, isActive = true } = req.body;
+    if (!name) {
+      res.status(400);
+      throw new Error("Supplier name is required");
+    }
+    name = name.toUpperCase();
+    try {
+      const supplier = await prisma.supplier.create({
+        data: { name, contact, address, isActive },
+      });
+      successHandler(supplier, res, "POST", "Created Supplier successfully");
+    } catch (error: any) {
+      if (error.code === "P2002") {
+        res.status(409);
+        throw new Error("Supplier name must be unique");
+      }
+      res.status(500);
+      throw new Error(error.message || "Failed to create supplier");
+    }
   }
 );
 
 // READ Supplier
 export const read = expressAsyncHandler(async (req: Request, res: Response) => {
-  const { search } = req.query;
+  const { search, page = 1, limit = 100 } = req.query;
 
-  const whereClause = search
-    ? {
-        name: {
-          contains: search as string,
-        },
-      }
-    : {};
+  const pageNumber = parseInt(page as string, 10) || 1;
+  const itemsPerPage = parseInt(limit as string, 10) || 100;
+  const skip = (pageNumber - 1) * itemsPerPage;
 
-  const response = await prisma.supplier.findMany({
-    where: whereClause,
-    orderBy: {
-      name: "asc",
-    },
-  });
+  const whereClause: any = {
+    isActive: true,
+  };
+
+  if (search) {
+    whereClause.name = {
+      contains: search as string,
+    };
+  }
+
+  const [totalItems, suppliers] = await Promise.all([
+    prisma.supplier.count({ where: whereClause }),
+    prisma.supplier.findMany({
+      where: whereClause,
+      orderBy: { name: "asc" },
+      skip,
+      take: itemsPerPage,
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+  const pagination = {
+    currentPage: pageNumber,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    hasNextPage: pageNumber < totalPages,
+    hasPreviousPage: pageNumber > 1,
+  };
 
   successHandler(
-    response,
+    { suppliers, pagination },
     res,
     "GET",
     `Getting ${search ? "filtered" : "all"} Supplier values`
@@ -55,12 +97,42 @@ export const readById = expressAsyncHandler(
 // UPDATE Supplier
 export const update = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
-    successHandler(
-      "Updated Supplier",
-      res,
-      "PUT",
-      "Supplier updated successfully"
-    );
+    const { id } = req.params;
+    let { name, contact, address, isActive } = req.body;
+    if (!id) {
+      res.status(400);
+      throw new Error("Supplier id is required");
+    }
+    try {
+      const existing = await prisma.supplier.findUnique({
+        where: { id: Number(id) },
+      });
+      if (!existing) {
+        res.status(404);
+        throw new Error("Supplier not found");
+      }
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name.toUpperCase();
+      if (contact !== undefined) updateData.contact = contact;
+      if (address !== undefined) updateData.address = address;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (Object.keys(updateData).length === 0) {
+        res.status(400);
+        throw new Error("No update fields provided");
+      }
+      const updated = await prisma.supplier.update({
+        where: { id: Number(id) },
+        data: updateData,
+      });
+      successHandler(updated, res, "PUT", "Supplier updated successfully");
+    } catch (error: any) {
+      if (error.code === "P2002") {
+        res.status(409);
+        throw new Error("Supplier name must be unique");
+      }
+      res.status(500);
+      throw new Error(error.message || "Failed to update supplier");
+    }
   }
 );
 

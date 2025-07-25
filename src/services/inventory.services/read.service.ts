@@ -46,10 +46,10 @@ export const inventory_list = async (
   const allInventories = await prisma.inventoryBatch.findMany({
     where: batchWhereClause,
     include: {
-      supplier: true,
-      district: true,
-      createdBy: { select: { id: true, fullname: true } },
-      updatedBy: { select: { id: true, fullname: true } },
+      supplier: { select: { name: true } },
+      district: { select: { name: true, code: true } },
+      createdBy: { select: { fullname: true } },
+      updatedBy: { select: { fullname: true } },
       items: {
         // Filter items by status if specified
         // where: itemStatusFilter ? { status: itemStatusFilter } : undefined,
@@ -62,8 +62,8 @@ export const inventory_list = async (
           status: true,
           product: {
             select: {
-              generic: true,
-              brand: true,
+              generic: { select: { name: true } },
+              brand: { select: { name: true } },
               image: true,
               safetyStock: true,
               categories: { select: { name: true } },

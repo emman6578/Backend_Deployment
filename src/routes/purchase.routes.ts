@@ -12,6 +12,7 @@ import {
   read_purchaseReturnList,
   read_purchaseEditLists,
   update_status_purchase_return,
+  purchase_report,
 } from "@controllers/purchase.controller/purchase.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
 import { validateCsrfToken } from "@middlewares/csrfMiddleware";
@@ -22,6 +23,13 @@ import { Router } from "express";
 const router = Router();
 
 //Create
+router.get(
+  "/report",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  purchase_report
+);
+
 router.post(
   "/",
   authenticateToken,

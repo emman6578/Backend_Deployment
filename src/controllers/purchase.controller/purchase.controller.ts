@@ -17,6 +17,10 @@ import { read_purchaseReturnList_service } from "@services/purchase.services/rea
 import { read_purchaseEditLists_service } from "@services/purchase.services/read_purchaseEditLists.service";
 import { verifyPurchase_service } from "@services/purchase.services/verify.purchase.service";
 import { update_status_purchase_return_service } from "@services/purchase.services/update_status_purchase_return.service";
+import { parseISO, isValid } from "date-fns";
+import ExcelJS from "exceljs";
+import fs from "fs";
+import path from "path";
 
 const prisma = new PrismaClient();
 
@@ -42,28 +46,26 @@ export const create = expressAsyncHandler(
     }
 
     successHandler(
-      batches,
+      "Purchase created successfully",
       res,
       "POST",
       `Successfully created ${batches.length} purchase batch(es) with their items`
     );
   }
 );
-
 //Create Purchase Return
 export const create_purchase_return = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
     const purchaseReturn = await purchase_return_create(req.body, req.user!.id);
 
     successHandler(
-      { purchaseReturn },
+      "Purchase return created successfully",
       res,
       "POST",
       "Purchase return created successfully"
     );
   }
 );
-
 export const update_status_purchase_return = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { returnId, status, notes } = req.body;
@@ -80,7 +82,7 @@ export const update_status_purchase_return = expressAsyncHandler(
       });
 
       successHandler(
-        result,
+        "Purchase return status updated successfully",
         res,
         "PUT",
         `Purchase return status updated to ${status} successfully`
@@ -92,7 +94,6 @@ export const update_status_purchase_return = expressAsyncHandler(
     }
   }
 );
-
 // READ Purchase
 export const read = expressAsyncHandler(async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
@@ -122,7 +123,6 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
     "Purchases fetched successfully"
   );
 });
-
 //READ Purchase to be added to inventory
 export const read_purchaseToInventory = expressAsyncHandler(
   async (req: Request, res: Response) => {
@@ -583,6 +583,199 @@ export const verify = expressAsyncHandler(
       res,
       "PUT",
       `Purchase batch #${result.batchNumber} verified successfully by ${result.verification.verifiedBy}`
+    );
+  }
+);
+
+export const purchase_report = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { dateFrom, dateTo, format } = req.query;
+
+    // Validate date inputs
+    if (!dateFrom || !dateTo) {
+      throw new Error("Both dateFrom and dateTo are required");
+    }
+    const from = parseISO(dateFrom as string);
+    const to = parseISO(dateTo as string);
+    if (!isValid(from) || !isValid(to)) {
+      throw new Error("Invalid date format. Use YYYY-MM-DD");
+    }
+    if (from > to) {
+      throw new Error("dateFrom must be before or equal to dateTo");
+    }
+
+    // Fetch purchases with items in date range
+    const purchases = await prisma.purchase.findMany({
+      where: {
+        createdAt: {
+          gte: from,
+          lte: to,
+        },
+      },
+      include: {
+        supplier: true,
+        district: true,
+        createdBy: { select: { fullname: true } },
+        updatedBy: { select: { fullname: true } },
+        items: {
+          select: {
+            id: true,
+            initialQuantity: true,
+            currentQuantity: true,
+            costPrice: true,
+            retailPrice: true,
+            product: {
+              select: {
+                generic: { select: { name: true } },
+                brand: { select: { name: true } },
+                image: true,
+                categories: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Optionally, add summary info here
+    const summary = {
+      totalPurchases: purchases.length,
+      totalAmount: purchases.reduce(
+        (sum, p) =>
+          sum +
+          p.items.reduce(
+            (itemSum, item) =>
+              itemSum + Number(item.costPrice) * Number(item.initialQuantity),
+            0
+          ),
+        0
+      ),
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+    };
+
+    // Excel export logic - save to server
+    if (format === "excel") {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Purchase Report");
+
+      worksheet.columns = [
+        { header: "Tracking #", key: "referenceNumber", width: 25 },
+        { header: "Batch Number", key: "batchNumber", width: 18 },
+        { header: "Supplier", key: "supplier", width: 50 },
+        { header: "District", key: "district", width: 30 },
+        { header: "Invoice Number", key: "invoiceNumber", width: 18 },
+        { header: "Invoice Date", key: "invoiceDate", width: 20 },
+        { header: "Product Brand", key: "productBrand", width: 20 },
+        { header: "Product Generic", key: "productGeneric", width: 50 },
+        { header: "Product Categories", key: "productCategories", width: 25 },
+        { header: "Initial Qty", key: "initialQty", width: 12 },
+        { header: "Current Qty", key: "currentQty", width: 12 },
+        { header: "Cost Price", key: "costPrice", width: 12 },
+        { header: "Retail Price", key: "retailPrice", width: 12 },
+      ];
+
+      // Add a title row at the top
+      const title = "Purchase Report";
+      worksheet.insertRow(1, [title]);
+      worksheet.mergeCells(1, 1, 1, worksheet.columns.length);
+      const titleRow = worksheet.getRow(1);
+      titleRow.font = { size: 18, bold: true };
+      titleRow.alignment = { vertical: "middle", horizontal: "center" };
+      titleRow.height = 40; // Increase the height of the title row
+
+      // Add a 'Date generated' row below the title
+      const dateGenerated = `Date generated: ${new Date().toLocaleString()}`;
+      worksheet.insertRow(2, [dateGenerated]);
+      worksheet.mergeCells(2, 1, 2, worksheet.columns.length);
+      const dateRow = worksheet.getRow(2);
+      dateRow.font = { italic: true, size: 10 };
+      dateRow.alignment = { vertical: "middle", horizontal: "right" };
+      dateRow.height = 25;
+
+      // Add data rows starting from row 4
+      let dataStartRow = 4;
+      purchases.forEach((purchase) => {
+        purchase.items.forEach((item) => {
+          worksheet.addRow({
+            referenceNumber: purchase.referenceNumber,
+            batchNumber: purchase.batchNumber,
+            supplier: purchase.supplier?.name,
+            district: purchase.district?.name,
+            invoiceNumber: purchase.invoiceNumber,
+            invoiceDate: purchase.invoiceDate,
+            productBrand: item.product.brand?.name,
+            productGeneric: item.product.generic?.name,
+            productCategories: Array.isArray(item.product.categories)
+              ? item.product.categories.map((c) => c.name).join(", ")
+              : "",
+            initialQty: item.initialQuantity,
+            currentQty: item.currentQuantity,
+            costPrice: parseInt(item.costPrice.toString()),
+            retailPrice: parseInt(item.retailPrice.toString()),
+          });
+        });
+      });
+
+      // Center all cell values (headers and data)
+      worksheet.eachRow((row, rowNumber) => {
+        row.alignment = { vertical: "middle", horizontal: "center" };
+      });
+
+      // Make the header row bold (now row 3)
+      const headerRow = worksheet.getRow(3);
+      headerRow.font = { bold: true };
+
+      // Add summary section after data rows
+      // Defensive: get last data row index
+      let lastDataRow = worksheet.lastRow
+        ? worksheet.lastRow.number
+        : worksheet.rowCount;
+      worksheet.addRow([]); // Blank row
+      worksheet.addRow([`Total Purchases:`, summary.totalPurchases]);
+      worksheet.addRow([`Total Amount:`, summary.totalAmount]);
+      const totalPurchasesRow = worksheet.getRow(lastDataRow + 2);
+      const totalAmountRow = worksheet.getRow(lastDataRow + 3);
+      totalPurchasesRow.font = { bold: true };
+      totalAmountRow.font = { bold: true };
+      totalPurchasesRow.alignment = { vertical: "middle", horizontal: "left" };
+      totalAmountRow.alignment = { vertical: "middle", horizontal: "left" };
+
+      // Use project root for reports directory
+      const reportsDir = path.join(process.cwd(), "public/reports");
+      if (!fs.existsSync(reportsDir)) {
+        fs.mkdirSync(reportsDir, { recursive: true });
+      }
+
+      // Generate a unique filename
+      const filename = `purchase_report_${Date.now()}.xlsx`;
+      const filePath = path.join(reportsDir, filename);
+
+      // Save the workbook to disk with error logging
+      try {
+        await workbook.xlsx.writeFile(filePath);
+      } catch (err) {
+        console.error("Failed to write Excel file:", err);
+        throw new Error("Failed to save Excel report on server");
+      }
+
+      // Return the download URL (relative to public folder)
+      const downloadUrl = `/reports/${filename}`;
+      successHandler(
+        { message: "Excel report generated", url: downloadUrl },
+        res,
+        "GET",
+        "Purchase report generated and saved successfully"
+      );
+      return;
+    }
+
+    successHandler(
+      { summary, purchases },
+      res,
+      "GET",
+      "Purchase report generated successfully"
     );
   }
 );

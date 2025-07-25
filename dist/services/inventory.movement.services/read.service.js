@@ -11,7 +11,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.inventory_movement_list = void 0;
 const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma = new client_1.PrismaClient({
+    omit: {
+        inventoryMovement: {
+            inventoryItemId: true,
+            createdById: true,
+        },
+    },
+});
 const inventory_movement_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", movementType, dateFrom, dateTo) {
     const skip = (page - 1) * limit;
     // Step 1: Build base conditions for database query
@@ -38,21 +45,25 @@ const inventory_movement_list = (...args_1) => __awaiter(void 0, [...args_1], vo
                 include: {
                     product: {
                         select: {
-                            id: true,
-                            generic: { select: { id: true, name: true } },
-                            brand: { select: { id: true, name: true } },
+                            generic: { select: { name: true } },
+                            brand: { select: { name: true } },
                             categories: { select: { name: true } },
                         },
                     },
                     batch: {
-                        include: {
+                        select: {
+                            invoiceDate: true,
+                            expiryDate: true,
+                            batchNumber: true,
+                            invoiceNumber: true,
+                            dt: true,
                             supplier: { select: { name: true } },
                             district: { select: { name: true } },
                         },
                     },
                 },
             },
-            createdBy: { select: { id: true, fullname: true } },
+            createdBy: { select: { fullname: true } },
         },
     });
     // Step 3: Apply search filter

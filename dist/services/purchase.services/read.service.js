@@ -11,7 +11,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.purchase_list = void 0;
 const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma = new client_1.PrismaClient({
+    omit: {
+        purchase: {
+            createdById: true,
+            updatedById: true,
+            isActive: true,
+        },
+        supplier: {
+            id: true,
+            contact: true,
+            address: true,
+            isActive: true,
+        },
+        district: {
+            id: true,
+            code: true,
+            isActive: true,
+        },
+    },
+});
 const purchase_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", status = "ALL") {
     const skip = (page - 1) * limit;
     const isVerificationStatus = status === "VERIFIED" || status === "UNVERIFIED";
@@ -46,8 +65,8 @@ const purchase_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, func
         include: {
             supplier: true,
             district: true,
-            createdBy: { select: { id: true, fullname: true } },
-            updatedBy: { select: { id: true, fullname: true } },
+            createdBy: { select: { fullname: true } },
+            updatedBy: { select: { fullname: true } },
             items: {
                 select: {
                     id: true,

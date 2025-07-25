@@ -1,6 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  omit: {
+    inventoryMovement: {
+      inventoryItemId: true,
+      createdById: true,
+    },
+  },
+});
 
 export interface InventoryMovementQuery {
   search?: string;
@@ -52,21 +59,25 @@ export const inventory_movement_list = async (
         include: {
           product: {
             select: {
-              id: true,
-              generic: { select: { id: true, name: true } },
-              brand: { select: { id: true, name: true } },
+              generic: { select: { name: true } },
+              brand: { select: { name: true } },
               categories: { select: { name: true } },
             },
           },
           batch: {
-            include: {
+            select: {
+              invoiceDate: true,
+              expiryDate: true,
+              batchNumber: true,
+              invoiceNumber: true,
+              dt: true,
               supplier: { select: { name: true } },
               district: { select: { name: true } },
             },
           },
         },
       },
-      createdBy: { select: { id: true, fullname: true } },
+      createdBy: { select: { fullname: true } },
     },
   });
 

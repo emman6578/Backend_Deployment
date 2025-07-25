@@ -7,6 +7,7 @@ const roleMiddleware_1 = require("@middlewares/roleMiddleware");
 const express_1 = require("express");
 const router = (0, express_1.Router)();
 //Create
+router.get("/report", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), purchase_controller_1.purchase_report);
 router.post("/", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCsrfToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), purchase_controller_1.create);
 //Create Purchase Return
 router.post("/return", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCsrfToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), purchase_controller_1.create_purchase_return);

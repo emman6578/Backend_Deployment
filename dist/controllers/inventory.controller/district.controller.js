@@ -19,25 +19,62 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const prisma = new client_1.PrismaClient();
 // CREATE Districts
 exports.create = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    (0, SuccessHandler_1.successHandler)("Create Districts", res, "POST", "Created Districts");
+    let { name, code, isActive = true } = req.body;
+    if (!name) {
+        res.status(400);
+        throw new Error("District name is required");
+    }
+    name = name.toUpperCase();
+    if (code)
+        code = code.toUpperCase();
+    try {
+        const district = yield prisma.district.create({
+            data: { name, code, isActive },
+        });
+        (0, SuccessHandler_1.successHandler)(district, res, "POST", "Created District successfully");
+    }
+    catch (error) {
+        if (error.code === "P2002") {
+            res.status(409);
+            throw new Error("District name or code must be unique");
+        }
+        res.status(500);
+        throw new Error(error.message || "Failed to create district");
+    }
 }));
 // READ Districts
 exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { search } = req.query;
-    const whereClause = search
-        ? {
-            name: {
-                contains: search,
-            },
-        }
-        : {};
-    const response = yield prisma.district.findMany({
-        where: whereClause,
-        orderBy: {
-            name: "asc",
-        },
-    });
-    (0, SuccessHandler_1.successHandler)(response, res, "GET", `Getting ${search ? "filtered" : "all"} Districts values`);
+    const { search, page = 1, limit = 100 } = req.query;
+    const pageNumber = parseInt(page, 10) || 1;
+    const itemsPerPage = parseInt(limit, 10) || 1000;
+    const skip = (pageNumber - 1) * itemsPerPage;
+    const whereClause = {
+        isActive: true,
+    };
+    if (search) {
+        whereClause.name = {
+            contains: search,
+        };
+    }
+    const [totalItems, districts] = yield Promise.all([
+        prisma.district.count({ where: whereClause }),
+        prisma.district.findMany({
+            where: whereClause,
+            orderBy: { name: "asc" },
+            skip,
+            take: itemsPerPage,
+        }),
+    ]);
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    const pagination = {
+        currentPage: pageNumber,
+        totalPages,
+        totalItems,
+        itemsPerPage,
+        hasNextPage: pageNumber < totalPages,
+        hasPreviousPage: pageNumber > 1,
+    };
+    (0, SuccessHandler_1.successHandler)({ districts, pagination }, res, "GET", `Getting ${search ? "filtered" : "all"} Districts values`);
 }));
 // READ Single Districts by ID
 exports.readById = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -45,7 +82,45 @@ exports.readById = (0, express_async_handler_1.default)((req, res) => __awaiter(
 }));
 // UPDATE Districts
 exports.update = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    (0, SuccessHandler_1.successHandler)("Updated Districts", res, "PUT", "Districts updated successfully");
+    const { id } = req.params;
+    let { name, code, isActive } = req.body;
+    if (!id) {
+        res.status(400);
+        throw new Error("District id is required");
+    }
+    try {
+        const existing = yield prisma.district.findUnique({
+            where: { id: Number(id) },
+        });
+        if (!existing) {
+            res.status(404);
+            throw new Error("District not found");
+        }
+        const updateData = {};
+        if (name !== undefined)
+            updateData.name = name.toUpperCase();
+        if (code !== undefined)
+            updateData.code = code.toUpperCase();
+        if (isActive !== undefined)
+            updateData.isActive = isActive;
+        if (Object.keys(updateData).length === 0) {
+            res.status(400);
+            throw new Error("No update fields provided");
+        }
+        const updated = yield prisma.district.update({
+            where: { id: Number(id) },
+            data: updateData,
+        });
+        (0, SuccessHandler_1.successHandler)(updated, res, "PUT", "District updated successfully");
+    }
+    catch (error) {
+        if (error.code === "P2002") {
+            res.status(409);
+            throw new Error("District name or code must be unique");
+        }
+        res.status(500);
+        throw new Error(error.message || "Failed to update district");
+    }
 }));
 // DELETE Districts (Soft delete - set isActive to false)
 exports.remove = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {

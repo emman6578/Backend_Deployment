@@ -1,5 +1,24 @@
 import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  omit: {
+    purchase: {
+      createdById: true,
+      updatedById: true,
+      isActive: true,
+    },
+    supplier: {
+      id: true,
+      contact: true,
+      address: true,
+      isActive: true,
+    },
+    district: {
+      id: true,
+      code: true,
+      isActive: true,
+    },
+  },
+});
 
 export const purchase_list = async (
   page: number = 1,
@@ -45,8 +64,8 @@ export const purchase_list = async (
     include: {
       supplier: true,
       district: true,
-      createdBy: { select: { id: true, fullname: true } },
-      updatedBy: { select: { id: true, fullname: true } },
+      createdBy: { select: { fullname: true } },
+      updatedBy: { select: { fullname: true } },
       items: {
         select: {
           id: true,

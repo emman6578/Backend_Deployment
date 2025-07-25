@@ -1,6 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  omit: {
+    purchaseEdit: {
+      id: true,
+    },
+  },
+});
 
 interface PurchaseEditQuery {
   page?: string;
@@ -104,9 +110,7 @@ export const read_purchaseEditLists_service = async (
       include: {
         editedBy: {
           select: {
-            id: true,
             fullname: true,
-            email: true,
           },
         },
       },

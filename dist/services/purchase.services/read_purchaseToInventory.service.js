@@ -11,7 +11,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.purchase_list_to_inventory = void 0;
 const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+const prisma = new client_1.PrismaClient({
+    omit: {
+        purchase: {
+            referenceNumber: true,
+            createdById: true,
+            updatedById: true,
+            isActive: true,
+        },
+        purchaseItems: {
+            batchId: true,
+            productId: true,
+            createdById: true,
+            updatedById: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            lastUpdateReason: true,
+        },
+    },
+});
 const purchase_list_to_inventory = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc") {
     const skip = (page - 1) * limit;
     // Step 1: Get all existing inventory batches to compare against

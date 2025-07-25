@@ -1,5 +1,24 @@
 import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  omit: {
+    purchase: {
+      referenceNumber: true,
+      createdById: true,
+      updatedById: true,
+      isActive: true,
+    },
+    purchaseItems: {
+      batchId: true,
+      productId: true,
+      createdById: true,
+      updatedById: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      lastUpdateReason: true,
+    },
+  },
+});
 
 export const purchase_list_to_inventory = async (
   page: number = 1,
