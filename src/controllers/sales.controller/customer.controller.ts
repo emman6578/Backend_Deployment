@@ -8,7 +8,11 @@ const prisma = new PrismaClient();
 
 export const read = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { search } = req.query;
+    const { search, page = "1", limit = "10" } = req.query;
+
+    const pageNumber = parseInt(page as string, 10) || 1;
+    const itemsPerPage = parseInt(limit as string, 10) || 1000;
+    const skip = (pageNumber - 1) * itemsPerPage;
 
     const whereClause = search
       ? {
@@ -18,49 +22,51 @@ export const read = expressAsyncHandler(
         }
       : {};
 
+    // Get total count for pagination
+    const totalItems = await prisma.customer.count({ where: whereClause });
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
     const findCustomer = await prisma.customer.findMany({
       where: whereClause,
       orderBy: {
         createdAt: "desc",
       },
+      skip,
+      take: itemsPerPage,
     });
 
-    successHandler(findCustomer, res, "GET", "Customer fetched successfully");
+    const pagination = {
+      currentPage: pageNumber,
+      totalPages,
+      totalItems,
+      itemsPerPage,
+      hasNextPage: pageNumber < totalPages,
+      hasPreviousPage: pageNumber > 1,
+    };
+
+    successHandler(
+      { customers: findCustomer, pagination },
+      res,
+      "GET",
+      `Getting ${search ? "filtered" : "all"} customers successfully`
+    );
   }
 );
 
-// export const create = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("result", res, "POST", "Customer created successfully");
-//   }
-// );
+export const create = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    successHandler("result", res, "POST", "Customer created successfully");
+  }
+);
 
-// export const update = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("Updated Customer", res, "PUT", "Customer updated successfully");
-//   }
-// );
-
-// // DELETE Customer (Soft delete - set isActive to false)
-// export const remove = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "Customer Deleted Successfully",
-//       res,
-//       "DELETE",
-//       "Customer deactivated successfully"
-//     );
-//   }
-// );
-
-// // RESTORE Customer (Reactivate soft-deleted Customer)
-// export const restore = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "Customer Restored Successfully",
-//       res,
-//       "PUT",
-//       "Customer restored successfully"
-//     );
-//   }
-// );
+// add her on update the isActive to soft delete the customer
+export const update = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    successHandler(
+      "Updated Customer",
+      res,
+      "PUT",
+      "Customer updated successfully"
+    );
+  }
+);

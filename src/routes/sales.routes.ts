@@ -4,6 +4,7 @@ import {
   createSalesReturn,
   read,
   read_SalesReturn,
+  updateSalesReturnStatus,
   // update,
   // readById,
 } from "@controllers/sales.controller/sales.controller";
@@ -39,7 +40,7 @@ router.post(
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   create_update_payment
 );
-//Read657812
+//Read
 router.get(
   "/",
   authenticateToken,
@@ -51,6 +52,15 @@ router.get(
   authenticateToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   read_SalesReturn
+);
+
+// Update Sales Return Status
+router.put(
+  "/return/status",
+  authenticateToken,
+  validateCsrfToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  updateSalesReturnStatus
 );
 
 // //Read by id

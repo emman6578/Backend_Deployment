@@ -47,5 +47,3 @@ router.get(
 // );
 
 export default router;
-
-// router.get("/", CheckApiKEY, read);

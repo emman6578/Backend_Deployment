@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.salesInventoryProducts = exports.read_Inventory_Items = exports.inventoryMovementUPDATE = exports.inventoryMovementCREATE = exports.inventoryMovementREAD = exports.lowStockProducts = exports.expiredProducts = exports.restore = exports.remove = exports.update = exports.readInventoryToUpdate = exports.readById = exports.read = exports.create = void 0;
+exports.salesInventoryProducts = exports.read_Inventory_Items = exports.inventoryMovementUPDATE = exports.inventoryMovementCREATE = exports.inventoryMovementGroupedByBatch = exports.inventoryMovementREAD = exports.lowStockProducts = exports.expiredProducts = exports.restore = exports.remove = exports.update = exports.readInventoryToUpdate = exports.readById = exports.read = exports.create = void 0;
 const client_1 = require("@prisma/client");
 const read_service_1 = require("@services/inventory.movement.services/read.service");
 const create_service_1 = require("@services/inventory.services/create.service");
@@ -21,6 +21,7 @@ const low_stock_service_1 = require("@services/inventory.services/low-stock.serv
 const read_service_2 = require("@services/inventory.services/read.service");
 const read_by_id_service_1 = require("@services/inventory.services/read_by_id.service");
 const update_service_1 = require("@services/inventory.services/update.service");
+const read_movements_grouped_service_1 = require("@services/inventory.services/read_movements_grouped.service");
 const expiredProducts_1 = require("@utils/ExpiredChecker/expiredProducts");
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
@@ -56,9 +57,12 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
     const sortField = req.query.sortField; // e.g., "invoice date"
     const sortOrder = ((_b = req.query.sortOrder) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === "asc" ? "asc" : "desc"; // default to desc
     const status = req.query.status;
+    // Date filter inputs
+    const dateFrom = req.query.dateFrom;
+    const dateTo = req.query.dateTo;
     // NEW: Check and update expired batches before fetching
     yield (0, expiredProducts_1.checkAndUpdateExpiredBatches)();
-    const { inventories, pagination, summary } = yield (0, read_service_2.inventory_list)(page, limit, search, sortField, sortOrder, status);
+    const { inventories, pagination, summary } = yield (0, read_service_2.inventory_list)(page, limit, search, sortField, sortOrder, status, dateFrom, dateTo);
     (0, SuccessHandler_1.successHandler)({ inventories, pagination, summary }, res, "GET", "Inventorys fetched successfully");
 }));
 // READ Single Inventory by ID
@@ -118,12 +122,24 @@ exports.expiredProducts = (0, express_async_handler_1.default)((req, res) => __a
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const itemsPerPage = Math.max(parseInt(req.query.limit) || 10, 1);
     const search = ((_b = req.query.search) === null || _b === void 0 ? void 0 : _b.trim()) || "";
+    // Parse date filter parameters
+    const dateFrom = req.query.dateFrom || undefined;
+    const dateTo = req.query.dateTo || undefined;
+    // Validate date parameters if provided
+    if (dateFrom && isNaN(Date.parse(dateFrom))) {
+        throw new Error("Invalid dateFrom format. Please use ISO date format (YYYY-MM-DD)");
+    }
+    if (dateTo && isNaN(Date.parse(dateTo))) {
+        throw new Error("Invalid dateTo format. Please use ISO date format (YYYY-MM-DD)");
+    }
     // Call service function
     const result = yield (0, expired_products_service_1.expired_products_list)({
         page,
         itemsPerPage,
         search,
         userId,
+        dateFrom,
+        dateTo,
     });
     // Send back response
     (0, SuccessHandler_1.successHandler)(result, res, "GET", "Inventory expired products fetched successfully with loss analysis");
@@ -136,8 +152,18 @@ exports.lowStockProducts = (0, express_async_handler_1.default)((req, res) => __
         const sortOrder = req.query.sortOrder === "desc" ? "desc" : "asc";
         const page = parseInt(req.query.page || "1", 10);
         const limit = parseInt(req.query.limit || "10", 10);
-        // Call service function
-        const responseData = yield (0, low_stock_service_1.low_stock_products_list)(page, limit, search, sortField, sortOrder);
+        // Extract date filter parameters
+        const dateFrom = req.query.dateFrom || undefined;
+        const dateTo = req.query.dateTo || undefined;
+        // Validate date parameters if provided
+        if (dateFrom && isNaN(Date.parse(dateFrom))) {
+            throw new Error("Invalid dateFrom format. Please use ISO date format (YYYY-MM-DD)");
+        }
+        if (dateTo && isNaN(Date.parse(dateTo))) {
+            throw new Error("Invalid dateTo format. Please use ISO date format (YYYY-MM-DD)");
+        }
+        // Call service function with date filters
+        const responseData = yield (0, low_stock_service_1.low_stock_products_list)(page, limit, search, sortField, sortOrder, dateFrom, dateTo);
         // Send successful response
         (0, SuccessHandler_1.successHandler)(responseData, res, "GET", "Inventory low-stock (non-expired) products fetched successfully");
     }
@@ -158,6 +184,24 @@ exports.inventoryMovementREAD = (0, express_async_handler_1.default)((req, res) 
         const responseData = yield (0, read_service_1.inventory_movement_list)(currentPage, itemsPerPage, search, sortField, sortOrder, movementType, dateFrom, dateTo);
         // Send successful response
         (0, SuccessHandler_1.successHandler)(responseData, res, "GET", "READ Inventory Movement successfully");
+    }
+    catch (error) {
+        throw new Error(error.message || error);
+    }
+}));
+exports.inventoryMovementGroupedByBatch = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { batchNumber, referenceNumber, batchAndReference, page, limit, dateFrom, dateTo, } = req.query;
+        const result = yield (0, read_movements_grouped_service_1.getInventoryMovementsGroupedByBatch)({
+            batchNumber: batchNumber,
+            referenceNumber: referenceNumber,
+            batchAndReference: batchAndReference,
+            page: page ? parseInt(page) : undefined,
+            limit: limit ? parseInt(limit) : undefined,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+        });
+        (0, SuccessHandler_1.successHandler)(result, res, "GET", "Read Inventory Movement grouped by batch successfully");
     }
     catch (error) {
         throw new Error(error.message || error);

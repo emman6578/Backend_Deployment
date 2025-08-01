@@ -107,13 +107,19 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
 
   const status = (req.query.status as string) || "ALL";
 
+  // Date filter inputs
+  const dateFrom = req.query.dateFrom as string;
+  const dateTo = req.query.dateTo as string;
+
   const { purchases, pagination, summary } = await purchase_list(
     page,
     limit,
     search,
     sortField,
     sortOrder,
-    status
+    status,
+    dateFrom,
+    dateTo
   );
 
   successHandler(

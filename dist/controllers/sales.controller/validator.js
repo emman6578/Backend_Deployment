@@ -72,6 +72,18 @@ const validateBasicTypes = (salesData) => {
         if (!sale.quantity || typeof sale.quantity !== "number") {
             throw new Error(`${prefix}quantity is required and must be a number`);
         }
+        // Make invoiceNumber required and not empty/whitespace
+        if (!sale.invoiceNumber ||
+            typeof sale.invoiceNumber !== "string" ||
+            sale.invoiceNumber.trim().length === 0) {
+            throw new Error(`${prefix}invoiceNumber is required and cannot be empty`);
+        }
+        // Make documentType required and not empty/whitespace
+        if (!sale.documentType ||
+            typeof sale.documentType !== "string" ||
+            sale.documentType.trim().length === 0) {
+            throw new Error(`${prefix}documentType is required and cannot be empty`);
+        }
         // Customer validation - either customerId or customerName must be provided
         if (!sale.customerId && !sale.customerName) {
             throw new Error(`${prefix}Either customerId or customerName must be provided`);
@@ -239,6 +251,26 @@ const validateStringFormats = (salesData) => {
                 throw new Error(`${prefix}invoiceNumber can only contain letters, numbers, hyphens, underscores, and forward slashes`);
             }
         }
+        // Classification validation
+        if (sale.classification) {
+            const trimmedClassification = sale.classification.trim();
+            if (trimmedClassification.length === 0) {
+                throw new Error(`${prefix}classification cannot be empty or only whitespace`);
+            }
+            // Classification should be letters, numbers, spaces, and common punctuation
+            const validClassificationPattern = /^[a-zA-Z0-9\s\-_.,&()]+$/;
+            if (!validClassificationPattern.test(trimmedClassification)) {
+                throw new Error(`${prefix}classification contains invalid characters`);
+            }
+            // Check for consecutive spaces
+            if (trimmedClassification.includes("  ")) {
+                throw new Error(`${prefix}classification cannot contain consecutive spaces`);
+            }
+            // Check length limit
+            if (trimmedClassification.length > 50) {
+                throw new Error(`${prefix}classification cannot exceed 50 characters`);
+            }
+        }
         // Area code validation
         if (sale.areaCode) {
             const trimmedAreaCode = sale.areaCode.trim();
@@ -394,7 +426,7 @@ const validateDatabaseConstraints = (salesData) => __awaiter(void 0, void 0, voi
             throw new Error(`Customers not found or inactive: ${missingIds.join(", ")}`);
         }
     }
-    // Validate inventory availability for each sale
+    // Validate inventory availability for each sale individually
     salesArray.forEach((sale, index) => {
         const prefix = salesArray.length > 1 ? `Sale ${index + 1}: ` : "";
         const inventoryItem = inventoryItems.find((item) => item.id === sale.inventoryItemId);
@@ -413,10 +445,12 @@ const validateDatabaseConstraints = (salesData) => __awaiter(void 0, void 0, voi
         if (inventoryItem.batch.expiryDate < new Date()) {
             throw new Error(`${prefix}Cannot sell expired products. Batch expired on ${inventoryItem.batch.expiryDate.toDateString()}`);
         }
-        // Check stock availability
+        // Check individual stock availability
         if (inventoryItem.currentQuantity < sale.quantity) {
             throw new Error(`${prefix}Insufficient stock. Available: ${inventoryItem.currentQuantity}, Requested: ${sale.quantity}`);
         }
+        // Note: Cumulative inventory validation for multiple sales targeting the same item
+        // is handled within the transaction in create_bulk.service.ts to prevent race conditions
         // Validate discount doesn't exceed item value
         const itemValue = inventoryItem.retailPrice.mul(sale.quantity);
         const discount = new library_1.Decimal(sale.unitDiscount || 0);
@@ -429,6 +463,11 @@ const validateDatabaseConstraints = (salesData) => __awaiter(void 0, void 0, voi
         const maxAllowedPayment = finalPrice.mul(1.1); // Allow 10% overpayment
         if (amountPaid.gt(maxAllowedPayment)) {
             throw new Error(`${prefix}Amount paid cannot exceed 110% of the final price`);
+        }
+        // Validate that balance will not be negative
+        const balance = finalPrice.minus(amountPaid);
+        if (balance.lt(0)) {
+            throw new Error(`${prefix}Amount paid cannot exceed the final price. Balance cannot be negative`);
         }
     });
 });
@@ -519,8 +558,8 @@ exports.validateUserPermissions = validateUserPermissions;
  */
 const sanitizeSalesData = (salesData) => {
     const sanitizeItem = (sale) => {
-        var _a, _b, _c, _d, _e, _f;
-        return Object.assign(Object.assign({}, sale), { customerName: (_a = sale.customerName) === null || _a === void 0 ? void 0 : _a.trim(), invoiceNumber: (_b = sale.invoiceNumber) === null || _b === void 0 ? void 0 : _b.trim(), documentType: (_c = sale.documentType) === null || _c === void 0 ? void 0 : _c.trim(), transactionGroup: (_d = sale.transactionGroup) === null || _d === void 0 ? void 0 : _d.trim(), notes: (_e = sale.notes) === null || _e === void 0 ? void 0 : _e.trim(), areaCode: (_f = sale.areaCode) === null || _f === void 0 ? void 0 : _f.trim(), unitDiscount: sale.unitDiscount || 0, amountPaid: sale.amountPaid || 0, paymentTerms: sale.paymentTerms || "CASH", paymentMethod: sale.paymentMethod || "CASH" });
+        var _a, _b, _c, _d, _e, _f, _g;
+        return Object.assign(Object.assign({}, sale), { customerName: (_a = sale.customerName) === null || _a === void 0 ? void 0 : _a.trim(), classification: (_b = sale.classification) === null || _b === void 0 ? void 0 : _b.trim().toUpperCase(), invoiceNumber: (_c = sale.invoiceNumber) === null || _c === void 0 ? void 0 : _c.trim(), documentType: (_d = sale.documentType) === null || _d === void 0 ? void 0 : _d.trim(), transactionGroup: (_e = sale.transactionGroup) === null || _e === void 0 ? void 0 : _e.trim(), notes: (_f = sale.notes) === null || _f === void 0 ? void 0 : _f.trim(), areaCode: (_g = sale.areaCode) === null || _g === void 0 ? void 0 : _g.trim(), unitDiscount: sale.unitDiscount || 0, amountPaid: sale.amountPaid || 0, paymentTerms: sale.paymentTerms || "CASH", paymentMethod: sale.paymentMethod || "CASH" });
     };
     return Array.isArray(salesData)
         ? salesData.map(sanitizeItem)

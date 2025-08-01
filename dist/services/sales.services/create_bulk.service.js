@@ -53,6 +53,48 @@ const validateInventoryAvailability = (inventoryItemId, requestedQuantity) => __
     }
     return inventoryItem;
 });
+// Add this function after validateInventoryAvailability
+const validateCumulativeInventoryAvailability = (salesArray, tx) => __awaiter(void 0, void 0, void 0, function* () {
+    // Group sales by inventoryItemId to calculate cumulative quantities
+    const inventoryItemGroups = new Map();
+    for (const sale of salesArray) {
+        const currentTotal = inventoryItemGroups.get(sale.inventoryItemId) || 0;
+        inventoryItemGroups.set(sale.inventoryItemId, currentTotal + sale.quantity);
+    }
+    // Validate each inventory item's cumulative availability
+    for (const [inventoryItemId, totalRequestedQuantity] of inventoryItemGroups) {
+        const inventoryItem = yield tx.inventoryItem.findUnique({
+            where: { id: inventoryItemId },
+            include: {
+                batch: {
+                    include: {
+                        supplier: true,
+                    },
+                },
+                product: {
+                    include: {
+                        generic: true,
+                        brand: true,
+                        company: true,
+                    },
+                },
+            },
+        });
+        if (!inventoryItem) {
+            throw new Error(`Inventory item ${inventoryItemId} not found`);
+        }
+        if (inventoryItem.status !== "ACTIVE") {
+            throw new Error(`Inventory item ${inventoryItemId} is not active. Status: ${inventoryItem.status}`);
+        }
+        if (inventoryItem.currentQuantity < totalRequestedQuantity) {
+            throw new Error(`Insufficient stock for cumulative sales. Available: ${inventoryItem.currentQuantity}, Total Requested: ${totalRequestedQuantity}`);
+        }
+        // Check if batch is expired
+        if (inventoryItem.batch.expiryDate < new Date()) {
+            throw new Error(`Cannot sell expired products for inventory item ${inventoryItemId}`);
+        }
+    }
+});
 // Add this function before the createSale function
 const generateSaleHash = (saleData, userId) => {
     const normalizedData = {
@@ -115,11 +157,13 @@ const createSale = (salesData, context) => __awaiter(void 0, void 0, void 0, fun
     // Start transaction
     const results = yield prisma.$transaction((tx) => __awaiter(void 0, void 0, void 0, function* () {
         const createdSales = [];
+        // Validate cumulative inventory availability first
+        yield validateCumulativeInventoryAvailability(salesArray, tx);
         for (const salesItem of salesArray) {
             const saleHash = generateSaleHash(salesItem, userId);
             // Check for duplicate individual sale
             yield checkForDuplicateSale(saleHash, tx);
-            const { inventoryItemId, customerId, customerName, districtId, psrId, quantity, unitDiscount = 0, paymentTerms = "CASH", paymentMethod = "CASH", amountPaid = 0, dueDate, invoiceNumber, documentType, transactionGroup, notes, } = salesItem;
+            const { inventoryItemId, customerId, customerName, classification, districtId, psrId, quantity, unitDiscount = 0, paymentTerms = "CASH", paymentMethod = "CASH", amountPaid = 0, dueDate, invoiceNumber, documentType, transactionGroup, notes, } = salesItem;
             // Validation for each item
             if (!inventoryItemId || !districtId || !psrId || !quantity) {
                 throw new Error("Required fields: inventoryItemId, districtId, psrId, quantity");
@@ -136,8 +180,27 @@ const createSale = (salesData, context) => __awaiter(void 0, void 0, void 0, fun
             if (!customerId && !customerName) {
                 throw new Error("Either customerId or customerName must be provided");
             }
-            // Validate inventory availability for this item
-            const inventoryItem = yield validateInventoryAvailability(inventoryItemId, quantity);
+            // Get inventory item for this sale (already validated cumulatively)
+            const inventoryItem = yield tx.inventoryItem.findUnique({
+                where: { id: inventoryItemId },
+                include: {
+                    batch: {
+                        include: {
+                            supplier: true,
+                        },
+                    },
+                    product: {
+                        include: {
+                            generic: true,
+                            brand: true,
+                            company: true,
+                        },
+                    },
+                },
+            });
+            if (!inventoryItem) {
+                throw new Error(`Inventory item ${inventoryItemId} not found`);
+            }
             // Validate PSR exists and is active
             const psr = yield tx.pSR.findUnique({
                 where: { id: psrId },
@@ -187,9 +250,7 @@ const createSale = (salesData, context) => __awaiter(void 0, void 0, void 0, fun
                     // 3) If not found, create a brand‑new customer
                     const newCustomer = yield tx.customer.create({
                         data: {
-                            customerName: trimmedName,
-                            customerType: "WALK_IN",
-                            creditTerms: "CASH",
+                            customerName: trimmedName.toUpperCase(),
                             createdById: userId,
                         },
                     });
@@ -216,6 +277,21 @@ const createSale = (salesData, context) => __awaiter(void 0, void 0, void 0, fun
             const totalDiscount = new library_1.Decimal(unitDiscount);
             const unitFinalPrice = totalBeforeDiscount.minus(totalDiscount);
             const balance = unitFinalPrice.minus(amountPaid);
+            // Validate that balance is not negative
+            if (balance.lt(0)) {
+                throw new Error(`Amount paid cannot exceed the final price. Balance cannot be negative. Final price: ${unitFinalPrice}, Amount paid: ${amountPaid}`);
+            }
+            // Validate payment terms consistency with balance
+            if (balance.gt(0) && paymentTerms === "CASH") {
+                throw new Error(`Payment terms cannot be CASH when there is a balance owed. Balance: ${balance}, Payment Terms: ${paymentTerms}. Please select appropriate credit terms.`);
+            }
+            if (paymentTerms === "CASH" && balance.gt(0)) {
+                throw new Error(`CASH payment terms require full payment. Current balance: ${balance}. Please pay the full amount or select credit terms.`);
+            }
+            // Validate that if balance is 0 (full payment), payment terms must be CASH
+            if (balance.eq(0) && paymentTerms !== "CASH") {
+                throw new Error(`When full payment is made (balance = 0), payment terms must be CASH. Current payment terms: ${paymentTerms}. Please change to CASH.`);
+            }
             // Generate reference number for each sale
             const referenceNumber = yield (0, generateRefNumber_1.generateRefNumber)(prisma, 6, "SALE");
             let calculatedDueDate = null;
@@ -246,6 +322,9 @@ const createSale = (salesData, context) => __awaiter(void 0, void 0, void 0, fun
                     supplierName: inventoryItem.batch.supplier.name,
                     customerId: finalCustomerId,
                     customerName: finalCustomerName,
+                    classification: classification
+                        ? classification.toUpperCase()
+                        : classification,
                     districtId,
                     areaCode: psr.areaCode,
                     psrId,

@@ -85,7 +85,10 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
     const sortField = req.query.sortField; // e.g., "invoice date"
     const sortOrder = ((_b = req.query.sortOrder) === null || _b === void 0 ? void 0 : _b.toLowerCase()) === "asc" ? "asc" : "desc"; // default to desc
     const status = req.query.status || "ALL";
-    const { purchases, pagination, summary } = yield (0, read_service_1.purchase_list)(page, limit, search, sortField, sortOrder, status);
+    // Date filter inputs
+    const dateFrom = req.query.dateFrom;
+    const dateTo = req.query.dateTo;
+    const { purchases, pagination, summary } = yield (0, read_service_1.purchase_list)(page, limit, search, sortField, sortOrder, status, dateFrom, dateTo);
     (0, SuccessHandler_1.successHandler)({ purchases, pagination, summary }, res, "GET", "Purchases fetched successfully");
 }));
 //READ Purchase to be added to inventory

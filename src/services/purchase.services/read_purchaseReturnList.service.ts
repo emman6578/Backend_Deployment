@@ -9,6 +9,8 @@ export interface PurchaseReturnQueryParams {
   limit?: string;
   search?: string;
   status?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface PurchaseReturnListResponse {
@@ -33,6 +35,8 @@ export const read_purchaseReturnList_service = async (
     limit = "10",
     search,
     status,
+    dateFrom,
+    dateTo,
   } = queryParams;
 
   // Parse pagination values
@@ -67,9 +71,27 @@ export const read_purchaseReturnList_service = async (
     where.status = status;
   }
 
+  // Add date filtering
+  if (dateFrom || dateTo) {
+    where.returnDate = {};
+
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      where.returnDate.gte = fromDate;
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      where.returnDate.lte = toDate;
+    }
+  }
+
   if (search) {
     const searchTerm = String(search);
     where = {
+      ...where, // Preserve existing conditions (like date filters)
       OR: [
         // Direct field search - convert to string for ID search
         { id: isNaN(Number(searchTerm)) ? undefined : Number(searchTerm) },

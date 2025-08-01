@@ -59,6 +59,7 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
             OR: [
                 { fullName: { contains: search } },
                 { areaCode: { contains: search.toLowerCase() } },
+                { psrCode: { contains: search } },
             ],
         }
         : {};
@@ -123,43 +124,3 @@ exports.syncAndReadPSR = (0, express_async_handler_1.default)((req, res) => __aw
     const allPSRs = yield prisma.pSR.findMany({ orderBy: { fullName: "asc" } });
     (0, SuccessHandler_1.successHandler)(allPSRs, res, "GET", "PSRs synced (only new or changed ones updated)");
 }));
-// // CREATE PSR
-// export const create = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("Create PSR", res, "POST", "Created PSR");
-//   }
-// );
-// // READ Single PSR by ID
-// export const readById = expressAsyncHandler(
-//   async (req: Request, res: Response) => {
-//     successHandler("Read Single PSR", res, "GET", "PSR fetched successfully");
-//   }
-// );
-// // UPDATE PSR
-// export const update = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("Updated PSR", res, "PUT", "PSR updated successfully");
-//   }
-// );
-// // DELETE PSR (Soft delete - set isActive to false)
-// export const remove = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "PSR Deleted Successfully",
-//       res,
-//       "DELETE",
-//       "PSR deactivated successfully"
-//     );
-//   }
-// );
-// // RESTORE PSR (Reactivate soft-deleted PSR)
-// export const restore = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "PSR Restored Successfully",
-//       res,
-//       "PUT",
-//       "PSR restored successfully"
-//     );
-//   }
-// );

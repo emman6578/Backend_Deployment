@@ -26,7 +26,9 @@ export const purchase_list = async (
   search: string = "",
   sortField?: string,
   sortOrder: "asc" | "desc" = "desc",
-  status: string = "ALL"
+  status: string = "ALL",
+  dateFrom?: string,
+  dateTo?: string
 ) => {
   const skip = (page - 1) * limit;
 
@@ -34,13 +36,28 @@ export const purchase_list = async (
   const isAllStatus = status === "ALL" || status === ""; // New: check for "ALL" status
 
   // Build the where clause conditionally
-  let whereClause = {};
+  let whereClause: any = {};
+
+  // Date filtering
+  if (dateFrom || dateTo) {
+    whereClause.createdAt = {};
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      whereClause.createdAt.gte = fromDate;
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      whereClause.createdAt.lte = toDate;
+    }
+  }
 
   if (!isAllStatus) {
     // Only apply status filtering if not "ALL"
     if (isVerificationStatus) {
       // For verification status, we filter by verifiedBy/verificationDate presence
-      whereClause =
+      const statusFilter =
         status === "VERIFIED"
           ? {
               AND: [
@@ -51,12 +68,30 @@ export const purchase_list = async (
           : {
               OR: [{ verifiedBy: null }, { verificationDate: null }],
             };
+
+      // Combine date filter with status filter
+      if (dateFrom || dateTo) {
+        whereClause = {
+          AND: [whereClause, statusFilter],
+        };
+      } else {
+        whereClause = statusFilter;
+      }
     } else {
       // For regular status, filter by PurchaseStatus enum
-      whereClause = { status: status as any };
+      const statusFilter = { status: status as any };
+
+      // Combine date filter with status filter
+      if (dateFrom || dateTo) {
+        whereClause = {
+          AND: [whereClause, statusFilter],
+        };
+      } else {
+        whereClause = statusFilter;
+      }
     }
   }
-  // If isAllStatus is true, whereClause remains empty object {}
+  // If isAllStatus is true and no date filters, whereClause remains empty object {}
 
   // Step 1: Fetch everything (with joins)
   const allInventories = await prisma.purchase.findMany({

@@ -50,6 +50,7 @@ const SORTABLE_FIELDS = [
   "createdAt",
   "updatedAt",
   "customerName",
+  "classification",
   "genericName",
   "brandName",
   "companyName",
@@ -64,6 +65,7 @@ type SortableField = (typeof SORTABLE_FIELDS)[number];
 const SEARCHABLE_FIELDS = [
   "transactionID",
   "customerName",
+  "classification",
   "genericName",
   "brandName",
   "companyName",
@@ -247,9 +249,6 @@ export const getSalesData = async (queryParams: SalesQueryParams) => {
           select: {
             id: true,
             customerName: true,
-            customerType: true,
-            phoneNumber: true,
-            emailAddress: true,
           },
         },
         psr: {
@@ -342,9 +341,23 @@ export const getSalesData = async (queryParams: SalesQueryParams) => {
     hasPreviousPage,
   };
 
-  // Prepare response data
+  // Add currentQuantity to each sale (quantity - sum of PROCESSED returns)
+  const salesWithCurrentQuantity = sales.map((sale: any) => {
+    const processedReturns = (sale.returns || []).filter(
+      (r: any) => r.status === "PROCESSED"
+    );
+    const returnedQty = processedReturns.reduce(
+      (sum: number, r: any) => sum + (r.returnQuantity || 0),
+      0
+    );
+    return {
+      ...sale,
+      currentQuantity: sale.quantity - returnedQty,
+    };
+  });
+
   const responseData = {
-    sales,
+    sales: salesWithCurrentQuantity,
     pagination,
     summary,
     filters: {

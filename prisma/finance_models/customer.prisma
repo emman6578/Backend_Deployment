@@ -3,16 +3,7 @@ model Customer {
   
   // Customer Information
   customerName   String
-  customerType   CustomerType @default(WALK_IN)
   
-  // Contact Information
-  contactPerson  String?
-  phoneNumber    String?
-  emailAddress   String?
-
-  // Credit Information
-  creditLimit    Decimal?  @db.Decimal(10, 2)
-  creditTerms    PaymentTerms @default(CASH)
   
   // User Accountability
   createdBy      User      @relation("CustomerCreatedBy", fields: [createdById], references: [id])
@@ -28,7 +19,7 @@ model Customer {
   // Relations
   sales          Sales[]
   
-  @@index([customerType])
+ 
   @@index([createdById])
   @@index([updatedById])
   @@map("customers")

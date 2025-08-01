@@ -12,6 +12,10 @@ import {
   CreateSalesReturnRequest,
   createSalesReturnService,
 } from "@services/sales.services/create_sales_return.service";
+import {
+  UpdateSalesReturnStatusRequest,
+  updateSalesReturnStatusService,
+} from "@services/sales.services/update_sales_return_status.service";
 
 const prisma = new PrismaClient();
 
@@ -115,6 +119,7 @@ export const read_SalesReturn = expressAsyncHandler(
                   { brandName: { contains: search as string } },
                   { companyName: { contains: search as string } },
                   { customerName: { contains: search as string } },
+                  { classification: { contains: search as string } },
                   { batchNumber: { contains: search as string } },
                   { supplierName: { contains: search as string } },
                 ],
@@ -358,6 +363,38 @@ export const create_update_payment = expressAsyncHandler(
       "POST",
       "Payment Updated Successfully"
     );
+  }
+);
+
+export const updateSalesReturnStatus = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { salesReturnId, newStatus, notes }: UpdateSalesReturnStatusRequest =
+      req.body;
+
+    const userId = req.user?.id;
+    if (typeof userId !== "number") {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const result = await updateSalesReturnStatusService({
+        salesReturnId,
+        newStatus,
+        notes,
+        userId,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+      });
+
+      successHandler(
+        result,
+        res,
+        "PUT",
+        `Sales Return Status Updated to ${newStatus} Successfully`
+      );
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to update sales return status");
+    }
   }
 );
 

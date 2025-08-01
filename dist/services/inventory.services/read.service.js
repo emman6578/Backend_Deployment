@@ -12,8 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.inventory_list = void 0;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
-const inventory_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", status // NEW: Filter for batch status
-) {
+const inventory_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", status, // NEW: Filter for batch status
+dateFrom, dateTo) {
     const skip = (page - 1) * limit;
     // Helper function to build status filter conditions
     const buildStatusFilter = (statusParam) => {
@@ -38,6 +38,22 @@ const inventory_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, fun
     // Add batch status filter if provided
     if (batchStatusFilter) {
         batchWhereClause.status = batchStatusFilter;
+    }
+    // Add date range filter if provided
+    if (dateFrom || dateTo) {
+        batchWhereClause.createdAt = {};
+        if (dateFrom) {
+            // Set to start of the day (00:00:00)
+            const fromDate = new Date(dateFrom);
+            fromDate.setHours(0, 0, 0, 0);
+            batchWhereClause.createdAt.gte = fromDate;
+        }
+        if (dateTo) {
+            // Set to end of the day (23:59:59.999)
+            const toDate = new Date(dateTo);
+            toDate.setHours(23, 59, 59, 999);
+            batchWhereClause.createdAt.lte = toDate;
+        }
     }
     // Step 1: Fetch everything (with joins and filters)
     const allInventories = yield prisma.inventoryBatch.findMany({
@@ -136,17 +152,10 @@ const inventory_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, fun
         hasPreviousPage: page > 1,
     };
     // Step 5: Build summary object based on the paginated list
-    let totalInitialQuantity = 0;
     let totalCurrentQuantity = 0;
     let totalCostValue = 0;
     let totalRetailValue = 0;
     let totalConsumedQuantity = 0;
-    let totalOrigCostValue = 0;
-    let totalOrigRetailValue = 0;
-    let totalCOGS = 0;
-    let totalRevenueRealized = 0;
-    let totalGrossProfitSoFar = 0;
-    let totalPotentialProfitRemain = 0;
     for (const inv of paginated) {
         inv.items.forEach((it) => {
             var _a, _b, _c, _d;
@@ -157,32 +166,18 @@ const inventory_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, fun
             const consumed = initQty - currQty;
             const markupUnit = Number(retailP) - Number(costP);
             // Raw totals
-            totalInitialQuantity += initQty;
             totalCurrentQuantity += currQty;
             totalCostValue += Number(currQty) * Number(costP);
             totalRetailValue += currQty * Number(retailP);
             // Additional metrics
             totalConsumedQuantity += consumed;
-            totalOrigCostValue += initQty * Number(costP);
-            totalOrigRetailValue += initQty * Number(retailP);
-            totalCOGS += consumed * Number(costP);
-            totalRevenueRealized += consumed * Number(retailP);
-            totalGrossProfitSoFar += consumed * markupUnit;
-            totalPotentialProfitRemain += currQty * markupUnit;
         });
     }
     const summary = {
-        totalInitialQuantity,
         totalCurrentQuantity,
         totalCostValue,
         totalRetailValue,
         totalConsumedQuantity,
-        totalOrigCostValue,
-        totalOrigRetailValue,
-        totalCOGS,
-        totalRevenueRealized,
-        totalGrossProfitSoFar,
-        totalPotentialProfitRemain,
     };
     return { inventories: paginated, pagination, summary };
 });

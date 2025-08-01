@@ -14,6 +14,7 @@ interface CreateSalesRequest {
   inventoryItemId: number;
   customerId?: number;
   customerName?: string;
+  classification?: string; // Government, Private etc.
   districtId: number;
   psrId: number;
   quantity: number;
@@ -86,6 +87,65 @@ const validateInventoryAvailability = async (
 
   return inventoryItem;
 };
+
+// Add this function after validateInventoryAvailability
+const validateCumulativeInventoryAvailability = async (
+  salesArray: CreateSalesRequest[],
+  tx: any
+) => {
+  // Group sales by inventoryItemId to calculate cumulative quantities
+  const inventoryItemGroups = new Map<number, number>();
+
+  for (const sale of salesArray) {
+    const currentTotal = inventoryItemGroups.get(sale.inventoryItemId) || 0;
+    inventoryItemGroups.set(sale.inventoryItemId, currentTotal + sale.quantity);
+  }
+
+  // Validate each inventory item's cumulative availability
+  for (const [inventoryItemId, totalRequestedQuantity] of inventoryItemGroups) {
+    const inventoryItem = await tx.inventoryItem.findUnique({
+      where: { id: inventoryItemId },
+      include: {
+        batch: {
+          include: {
+            supplier: true,
+          },
+        },
+        product: {
+          include: {
+            generic: true,
+            brand: true,
+            company: true,
+          },
+        },
+      },
+    });
+
+    if (!inventoryItem) {
+      throw new Error(`Inventory item ${inventoryItemId} not found`);
+    }
+
+    if (inventoryItem.status !== "ACTIVE") {
+      throw new Error(
+        `Inventory item ${inventoryItemId} is not active. Status: ${inventoryItem.status}`
+      );
+    }
+
+    if (inventoryItem.currentQuantity < totalRequestedQuantity) {
+      throw new Error(
+        `Insufficient stock for cumulative sales. Available: ${inventoryItem.currentQuantity}, Total Requested: ${totalRequestedQuantity}`
+      );
+    }
+
+    // Check if batch is expired
+    if (inventoryItem.batch.expiryDate < new Date()) {
+      throw new Error(
+        `Cannot sell expired products for inventory item ${inventoryItemId}`
+      );
+    }
+  }
+};
+
 // Add this function before the createSale function
 const generateSaleHash = (
   saleData: CreateSalesRequest,
@@ -171,6 +231,9 @@ export const createSale = async (
   const results = await prisma.$transaction(async (tx) => {
     const createdSales = [];
 
+    // Validate cumulative inventory availability first
+    await validateCumulativeInventoryAvailability(salesArray, tx);
+
     for (const salesItem of salesArray) {
       const saleHash = generateSaleHash(salesItem, userId);
       // Check for duplicate individual sale
@@ -179,6 +242,7 @@ export const createSale = async (
         inventoryItemId,
         customerId,
         customerName,
+        classification,
         districtId,
         psrId,
         quantity,
@@ -216,11 +280,28 @@ export const createSale = async (
         throw new Error("Either customerId or customerName must be provided");
       }
 
-      // Validate inventory availability for this item
-      const inventoryItem = await validateInventoryAvailability(
-        inventoryItemId,
-        quantity
-      );
+      // Get inventory item for this sale (already validated cumulatively)
+      const inventoryItem = await tx.inventoryItem.findUnique({
+        where: { id: inventoryItemId },
+        include: {
+          batch: {
+            include: {
+              supplier: true,
+            },
+          },
+          product: {
+            include: {
+              generic: true,
+              brand: true,
+              company: true,
+            },
+          },
+        },
+      });
+
+      if (!inventoryItem) {
+        throw new Error(`Inventory item ${inventoryItemId} not found`);
+      }
 
       // Validate PSR exists and is active
       const psr = await tx.pSR.findUnique({
@@ -278,9 +359,7 @@ export const createSale = async (
           // 3) If not found, create a brand‑new customer
           const newCustomer = await tx.customer.create({
             data: {
-              customerName: trimmedName,
-              customerType: "WALK_IN",
-              creditTerms: "CASH",
+              customerName: trimmedName.toUpperCase(),
               createdById: userId,
             },
           });
@@ -310,6 +389,33 @@ export const createSale = async (
       const totalDiscount = new Decimal(unitDiscount);
       const unitFinalPrice = totalBeforeDiscount.minus(totalDiscount);
       const balance = unitFinalPrice.minus(amountPaid);
+
+      // Validate that balance is not negative
+      if (balance.lt(0)) {
+        throw new Error(
+          `Amount paid cannot exceed the final price. Balance cannot be negative. Final price: ${unitFinalPrice}, Amount paid: ${amountPaid}`
+        );
+      }
+
+      // Validate payment terms consistency with balance
+      if (balance.gt(0) && paymentTerms === "CASH") {
+        throw new Error(
+          `Payment terms cannot be CASH when there is a balance owed. Balance: ${balance}, Payment Terms: ${paymentTerms}. Please select appropriate credit terms.`
+        );
+      }
+
+      if (paymentTerms === "CASH" && balance.gt(0)) {
+        throw new Error(
+          `CASH payment terms require full payment. Current balance: ${balance}. Please pay the full amount or select credit terms.`
+        );
+      }
+
+      // Validate that if balance is 0 (full payment), payment terms must be CASH
+      if (balance.eq(0) && paymentTerms !== "CASH") {
+        throw new Error(
+          `When full payment is made (balance = 0), payment terms must be CASH. Current payment terms: ${paymentTerms}. Please change to CASH.`
+        );
+      }
 
       // Generate reference number for each sale
       const referenceNumber = await generateRefNumber(prisma, 6, "SALE");
@@ -342,6 +448,9 @@ export const createSale = async (
           supplierName: inventoryItem.batch.supplier.name,
           customerId: finalCustomerId,
           customerName: finalCustomerName,
+          classification: classification
+            ? classification.toUpperCase()
+            : classification,
           districtId,
           areaCode: psr.areaCode,
           psrId,

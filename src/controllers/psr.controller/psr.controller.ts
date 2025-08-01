@@ -53,6 +53,7 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
         OR: [
           { fullName: { contains: search as string } },
           { areaCode: { contains: (search as string).toLowerCase() } },
+          { psrCode: { contains: search as string } },
         ],
       }
     : {};
@@ -142,48 +143,3 @@ export const syncAndReadPSR = expressAsyncHandler(
     );
   }
 );
-
-// // CREATE PSR
-// export const create = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("Create PSR", res, "POST", "Created PSR");
-//   }
-// );
-
-// // READ Single PSR by ID
-// export const readById = expressAsyncHandler(
-//   async (req: Request, res: Response) => {
-//     successHandler("Read Single PSR", res, "GET", "PSR fetched successfully");
-//   }
-// );
-
-// // UPDATE PSR
-// export const update = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler("Updated PSR", res, "PUT", "PSR updated successfully");
-//   }
-// );
-
-// // DELETE PSR (Soft delete - set isActive to false)
-// export const remove = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "PSR Deleted Successfully",
-//       res,
-//       "DELETE",
-//       "PSR deactivated successfully"
-//     );
-//   }
-// );
-
-// // RESTORE PSR (Reactivate soft-deleted PSR)
-// export const restore = expressAsyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     successHandler(
-//       "PSR Restored Successfully",
-//       res,
-//       "PUT",
-//       "PSR restored successfully"
-//     );
-//   }
-// );

@@ -12,13 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.create_update_payment = exports.read_SalesReturn = exports.createSalesReturn = exports.read = exports.create = void 0;
+exports.updateSalesReturnStatus = exports.create_update_payment = exports.read_SalesReturn = exports.createSalesReturn = exports.read = exports.create = void 0;
 const client_1 = require("@prisma/client");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
 const read_service_1 = require("@services/sales.services/read.service");
 const create_bulk_service_1 = require("@services/sales.services/create_bulk.service");
 const create_sales_return_service_1 = require("@services/sales.services/create_sales_return.service");
+const update_sales_return_status_service_1 = require("@services/sales.services/update_sales_return_status.service");
 const prisma = new client_1.PrismaClient();
 exports.create = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -88,6 +89,7 @@ exports.read_SalesReturn = (0, express_async_handler_1.default)((req, res) => __
                             { brandName: { contains: search } },
                             { companyName: { contains: search } },
                             { customerName: { contains: search } },
+                            { classification: { contains: search } },
                             { batchNumber: { contains: search } },
                             { supplierName: { contains: search } },
                         ],
@@ -281,6 +283,28 @@ exports.read_SalesReturn = (0, express_async_handler_1.default)((req, res) => __
 }));
 exports.create_update_payment = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     (0, SuccessHandler_1.successHandler)("Create Update Payment", res, "POST", "Payment Updated Successfully");
+}));
+exports.updateSalesReturnStatus = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { salesReturnId, newStatus, notes } = req.body;
+    const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+    if (typeof userId !== "number") {
+        throw new Error("User not authenticated");
+    }
+    try {
+        const result = yield (0, update_sales_return_status_service_1.updateSalesReturnStatusService)({
+            salesReturnId,
+            newStatus,
+            notes,
+            userId,
+            ipAddress: req.ip,
+            userAgent: req.get("User-Agent"),
+        });
+        (0, SuccessHandler_1.successHandler)(result, res, "PUT", `Sales Return Status Updated to ${newStatus} Successfully`);
+    }
+    catch (error) {
+        throw new Error(error.message || "Failed to update sales return status");
+    }
 }));
 // export const update = expressAsyncHandler(
 //   async (req: AuthRequest, res: Response) => {

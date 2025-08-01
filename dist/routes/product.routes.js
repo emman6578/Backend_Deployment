@@ -12,6 +12,7 @@ router.post("/", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCs
 product_controller_1.create);
 //Read
 router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), product_controller_1.read);
+router.get("/transaction-summary/:id", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), product_controller_1.readProductTransactionSummary);
 router.get("/:id", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), product_controller_1.readById);
 router.get("/product/:id", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), product_controller_1.readProductToUpdate);
 //Update

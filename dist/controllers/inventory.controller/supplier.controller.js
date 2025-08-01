@@ -19,7 +19,7 @@ const express_async_handler_1 = __importDefault(require("express-async-handler")
 const prisma = new client_1.PrismaClient();
 // CREATE Supplier
 exports.create = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    let { name, contact, address, isActive = true } = req.body;
+    let { name, tin_id, contact, address, isActive = true } = req.body;
     if (!name) {
         res.status(400);
         throw new Error("Supplier name is required");
@@ -27,7 +27,7 @@ exports.create = (0, express_async_handler_1.default)((req, res) => __awaiter(vo
     name = name.toUpperCase();
     try {
         const supplier = yield prisma.supplier.create({
-            data: { name, contact, address, isActive },
+            data: { name, tin_id, contact, address, isActive },
         });
         (0, SuccessHandler_1.successHandler)(supplier, res, "POST", "Created Supplier successfully");
     }
@@ -64,6 +64,10 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
             select: {
                 id: true,
                 name: true,
+                tin_id: true,
+                contact: true,
+                address: true,
+                isActive: true,
             },
         }),
     ]);
@@ -85,7 +89,7 @@ exports.readById = (0, express_async_handler_1.default)((req, res) => __awaiter(
 // UPDATE Supplier
 exports.update = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
-    let { name, contact, address, isActive } = req.body;
+    let { name, tin_id, contact, address, isActive } = req.body;
     if (!id) {
         res.status(400);
         throw new Error("Supplier id is required");
@@ -101,6 +105,8 @@ exports.update = (0, express_async_handler_1.default)((req, res) => __awaiter(vo
         const updateData = {};
         if (name !== undefined)
             updateData.name = name.toUpperCase();
+        if (tin_id !== undefined)
+            updateData.tin_id = tin_id;
         if (contact !== undefined)
             updateData.contact = contact;
         if (address !== undefined)

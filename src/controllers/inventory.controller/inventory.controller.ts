@@ -10,6 +10,7 @@ import {
   inventory_update,
   UpdateInventoryBatchRequest,
 } from "@services/inventory.services/update.service";
+import { getInventoryMovementsGroupedByBatch } from "@services/inventory.services/read_movements_grouped.service";
 import { checkAndUpdateExpiredBatches } from "@utils/ExpiredChecker/expiredProducts";
 import { successHandler } from "@utils/SuccessHandler/SuccessHandler";
 import { Request, Response } from "express";
@@ -60,6 +61,10 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
 
   const status = req.query.status as string;
 
+  // Date filter inputs
+  const dateFrom = req.query.dateFrom as string;
+  const dateTo = req.query.dateTo as string;
+
   // NEW: Check and update expired batches before fetching
   await checkAndUpdateExpiredBatches();
 
@@ -69,7 +74,9 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
     search,
     sortField,
     sortOrder,
-    status
+    status,
+    dateFrom,
+    dateTo
   );
 
   successHandler(
@@ -200,12 +207,30 @@ export const expiredProducts = expressAsyncHandler(
     const itemsPerPage = Math.max(parseInt(req.query.limit as string) || 10, 1);
     const search = (req.query.search as string)?.trim() || "";
 
+    // Parse date filter parameters
+    const dateFrom = (req.query.dateFrom as string) || undefined;
+    const dateTo = (req.query.dateTo as string) || undefined;
+
+    // Validate date parameters if provided
+    if (dateFrom && isNaN(Date.parse(dateFrom))) {
+      throw new Error(
+        "Invalid dateFrom format. Please use ISO date format (YYYY-MM-DD)"
+      );
+    }
+    if (dateTo && isNaN(Date.parse(dateTo))) {
+      throw new Error(
+        "Invalid dateTo format. Please use ISO date format (YYYY-MM-DD)"
+      );
+    }
+
     // Call service function
     const result = await expired_products_list({
       page,
       itemsPerPage,
       search,
       userId,
+      dateFrom,
+      dateTo,
     });
 
     // Send back response
@@ -228,13 +253,31 @@ export const lowStockProducts = expressAsyncHandler(
       const page = parseInt((req.query.page as string) || "1", 10);
       const limit = parseInt((req.query.limit as string) || "10", 10);
 
-      // Call service function
+      // Extract date filter parameters
+      const dateFrom = (req.query.dateFrom as string) || undefined;
+      const dateTo = (req.query.dateTo as string) || undefined;
+
+      // Validate date parameters if provided
+      if (dateFrom && isNaN(Date.parse(dateFrom))) {
+        throw new Error(
+          "Invalid dateFrom format. Please use ISO date format (YYYY-MM-DD)"
+        );
+      }
+      if (dateTo && isNaN(Date.parse(dateTo))) {
+        throw new Error(
+          "Invalid dateTo format. Please use ISO date format (YYYY-MM-DD)"
+        );
+      }
+
+      // Call service function with date filters
       const responseData = await low_stock_products_list(
         page,
         limit,
         search,
         sortField,
-        sortOrder
+        sortOrder,
+        dateFrom,
+        dateTo
       );
 
       // Send successful response
@@ -294,6 +337,41 @@ export const inventoryMovementREAD = expressAsyncHandler(
     }
   }
 );
+export const inventoryMovementGroupedByBatch = expressAsyncHandler(
+  async (req: Request, res: Response) => {
+    try {
+      const {
+        batchNumber,
+        referenceNumber,
+        batchAndReference,
+        page,
+        limit,
+        dateFrom,
+        dateTo,
+      } = req.query;
+
+      const result = await getInventoryMovementsGroupedByBatch({
+        batchNumber: batchNumber as string,
+        referenceNumber: referenceNumber as string,
+        batchAndReference: batchAndReference as string,
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+      });
+
+      successHandler(
+        result,
+        res,
+        "GET",
+        "Read Inventory Movement grouped by batch successfully"
+      );
+    } catch (error: any) {
+      throw new Error(error.message || error);
+    }
+  }
+);
+
 export const inventoryMovementCREATE = expressAsyncHandler(
   async (req: Request, res: Response) => {
     successHandler(

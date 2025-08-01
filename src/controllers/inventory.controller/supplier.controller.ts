@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 // CREATE Supplier
 export const create = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
-    let { name, contact, address, isActive = true } = req.body;
+    let { name, tin_id, contact, address, isActive = true } = req.body;
     if (!name) {
       res.status(400);
       throw new Error("Supplier name is required");
@@ -17,7 +17,7 @@ export const create = expressAsyncHandler(
     name = name.toUpperCase();
     try {
       const supplier = await prisma.supplier.create({
-        data: { name, contact, address, isActive },
+        data: { name, tin_id, contact, address, isActive },
       });
       successHandler(supplier, res, "POST", "Created Supplier successfully");
     } catch (error: any) {
@@ -59,6 +59,10 @@ export const read = expressAsyncHandler(async (req: Request, res: Response) => {
       select: {
         id: true,
         name: true,
+        tin_id: true,
+        contact: true,
+        address: true,
+        isActive: true,
       },
     }),
   ]);
@@ -98,7 +102,7 @@ export const readById = expressAsyncHandler(
 export const update = expressAsyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    let { name, contact, address, isActive } = req.body;
+    let { name, tin_id, contact, address, isActive } = req.body;
     if (!id) {
       res.status(400);
       throw new Error("Supplier id is required");
@@ -113,6 +117,7 @@ export const update = expressAsyncHandler(
       }
       const updateData: any = {};
       if (name !== undefined) updateData.name = name.toUpperCase();
+      if (tin_id !== undefined) updateData.tin_id = tin_id;
       if (contact !== undefined) updateData.contact = contact;
       if (address !== undefined) updateData.address = address;
       if (isActive !== undefined) updateData.isActive = isActive;

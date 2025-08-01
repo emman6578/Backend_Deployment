@@ -108,18 +108,32 @@ export const purchase_create = async (
               },
             });
 
-            await prisma.productTransaction.create({
+            // Create purchase edit log for new purchase item
+            await tx.purchaseEdit.create({
               data: {
+                editType: "PURCHASE",
                 referenceNumber: referenceNumber,
-                productId: itemData.productId,
-                transactionType: "PURCHASE_RECEIVED",
-                quantityIn: itemData.initialQuantity,
-                costPrice: itemData.costPrice,
-                retailPrice: itemData.retailPrice,
-                userId: userId,
-                sourceModel: "Purchase",
-                sourceId: batch.id,
-                description: `Purchase transaction recorded on ${new Date().toISOString()}`,
+                purchaseItemId: item.id,
+                action: "INSERT",
+                changedFields: {
+                  genericName: { old: "none", new: item.product.generic.name },
+                  brandName: { old: "none", new: item.product.brand.name },
+                  initialQuantity: {
+                    old: "none",
+                    new: itemData.initialQuantity,
+                  },
+                  currentQuantity: {
+                    old: "none",
+                    new: itemData.initialQuantity,
+                  },
+                  costPrice: { old: "none", new: itemData.costPrice },
+                  retailPrice: { old: "none", new: itemData.retailPrice },
+                },
+                reason: "New purchase item created",
+                editedById: userId,
+                batchNumber: batch.batchNumber,
+                genericName: item.product.generic.name,
+                brandName: item.product.brand.name,
               },
             });
 

@@ -12,9 +12,11 @@ router.post("/", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCs
 router.post("/return", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCsrfToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), sales_controller_1.createSalesReturn);
 //Create Update Payment
 router.post("/update-payment", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCsrfToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), sales_controller_1.create_update_payment);
-//Read657812
+//Read
 router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), sales_controller_1.read);
 router.get("/return", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), sales_controller_1.read_SalesReturn);
+// Update Sales Return Status
+router.put("/return/status", authMiddleware_1.authenticateToken, csrfMiddleware_1.validateCsrfToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), sales_controller_1.updateSalesReturnStatus);
 // //Read by id
 // router.get(
 //   "/:id",

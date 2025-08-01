@@ -13,7 +13,7 @@ exports.read_purchaseReturnList_service = void 0;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const read_purchaseReturnList_service = (queryParams) => __awaiter(void 0, void 0, void 0, function* () {
-    const { sortField, sortOrder, page = "1", limit = "10", search, status, } = queryParams;
+    const { sortField, sortOrder, page = "1", limit = "10", search, status, dateFrom, dateTo, } = queryParams;
     // Parse pagination values
     const currentPage = Math.max(parseInt(page, 10), 1);
     const itemsPerPage = Math.max(parseInt(limit, 10), 1);
@@ -41,10 +41,23 @@ const read_purchaseReturnList_service = (queryParams) => __awaiter(void 0, void 
     if (status) {
         where.status = status;
     }
+    // Add date filtering
+    if (dateFrom || dateTo) {
+        where.returnDate = {};
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom);
+            fromDate.setHours(0, 0, 0, 0);
+            where.returnDate.gte = fromDate;
+        }
+        if (dateTo) {
+            const toDate = new Date(dateTo);
+            toDate.setHours(23, 59, 59, 999);
+            where.returnDate.lte = toDate;
+        }
+    }
     if (search) {
         const searchTerm = String(search);
-        where = {
-            OR: [
+        where = Object.assign(Object.assign({}, where), { OR: [
                 // Direct field search - convert to string for ID search
                 { id: isNaN(Number(searchTerm)) ? undefined : Number(searchTerm) },
                 // Nested originalPurchase fields
@@ -97,8 +110,7 @@ const read_purchaseReturnList_service = (queryParams) => __awaiter(void 0, void 
             ].filter((condition) => {
                 // Remove undefined conditions (like when ID search fails)
                 return Object.values(condition).some((value) => value !== undefined);
-            }),
-        };
+            }) });
     }
     if (status) {
         where.status = status;

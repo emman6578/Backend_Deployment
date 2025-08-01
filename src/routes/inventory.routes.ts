@@ -1,6 +1,7 @@
 import {
   create,
   expiredProducts,
+  inventoryMovementGroupedByBatch,
   inventoryMovementREAD,
   lowStockProducts,
   read,
@@ -64,6 +65,13 @@ router.get(
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   inventoryMovementREAD
 );
+router.get(
+  "/inventory-movement-grouped-by-batch",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  inventoryMovementGroupedByBatch
+);
+
 //=================================================================================================================================================
 
 router.get(

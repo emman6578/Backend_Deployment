@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.update = exports.readProductToUpdate = exports.readById = exports.read = exports.create = void 0;
+exports.update = exports.readProductToUpdate = exports.readById = exports.readProductTransactionSummary = exports.read = exports.create = void 0;
 const SuccessHandler_1 = require("@utils/SuccessHandler/SuccessHandler");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const create_service_1 = require("@services/product.services/create.service");
@@ -176,13 +176,57 @@ exports.read = (0, express_async_handler_1.default)((req, res) => __awaiter(void
     const result = yield (0, read_service_1.products)(filters);
     (0, SuccessHandler_1.successHandler)(result, res, "GET", "Products fetched successfully");
 }));
+exports.readProductTransactionSummary = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id: idParam } = req.params;
+    const productId = parseInt(idParam, 10);
+    if (!productId || isNaN(productId)) {
+        throw new Error("Valid product ID is required");
+    }
+    // Fetch all transactions for this product
+    const transactions = yield prisma.productTransaction.findMany({
+        where: { productId },
+        include: {
+            user: { select: { id: true, fullname: true } },
+        },
+        orderBy: { transactionDate: "asc" },
+    });
+    // Prepare summary
+    let totalIn = 0;
+    let totalOut = 0;
+    const typeSummary = {};
+    transactions.forEach((tx, idx) => {
+        if (tx.quantityIn)
+            totalIn += tx.quantityIn;
+        if (tx.quantityOut)
+            totalOut += tx.quantityOut;
+        if (!typeSummary[tx.transactionType]) {
+            typeSummary[tx.transactionType] = {
+                count: 0,
+                quantityIn: 0,
+                quantityOut: 0,
+            };
+        }
+        typeSummary[tx.transactionType].count++;
+        if (tx.quantityIn)
+            typeSummary[tx.transactionType].quantityIn += tx.quantityIn;
+        if (tx.quantityOut)
+            typeSummary[tx.transactionType].quantityOut += tx.quantityOut;
+    });
+    const summary = {
+        productId,
+        totalTransactions: transactions.length,
+        totalIn,
+        totalOut,
+    };
+    (0, SuccessHandler_1.successHandler)(summary, res, "GET", "Product Transaction Summary fetched successfully");
+}));
 // READ Single Product by ID with comprehensive information
 exports.readById = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id: idParam } = req.params;
-    const { page = "1", limit = "10" } = req.query;
+    const { page = "1", limit = "10", dateFrom, dateTo } = req.query;
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
-    const product = yield (0, read_by_id_service_1.readByid)(parseInt(idParam), pageNumber, limitNumber);
+    const product = yield (0, read_by_id_service_1.readByid)(parseInt(idParam), pageNumber, limitNumber, dateFrom, dateTo);
     (0, SuccessHandler_1.successHandler)(product, res, "GET", "Product with comprehensive information fetched successfully");
 }));
 //Getting Info for products to be updated

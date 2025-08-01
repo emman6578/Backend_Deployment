@@ -38,4 +38,3 @@ router.get("/", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authori
 //   remove
 // );
 exports.default = router;
-// router.get("/", CheckApiKEY, read);

@@ -7,6 +7,7 @@ export interface CreateSalesRequest {
   inventoryItemId: number;
   customerId?: number;
   customerName?: string;
+  classification?: string; // Government, Private etc.
   districtId: number;
   psrId: number;
   quantity: number;
@@ -106,6 +107,24 @@ export const validateBasicTypes = (
 
     if (!sale.quantity || typeof sale.quantity !== "number") {
       throw new Error(`${prefix}quantity is required and must be a number`);
+    }
+
+    // Make invoiceNumber required and not empty/whitespace
+    if (
+      !sale.invoiceNumber ||
+      typeof sale.invoiceNumber !== "string" ||
+      sale.invoiceNumber.trim().length === 0
+    ) {
+      throw new Error(`${prefix}invoiceNumber is required and cannot be empty`);
+    }
+
+    // Make documentType required and not empty/whitespace
+    if (
+      !sale.documentType ||
+      typeof sale.documentType !== "string" ||
+      sale.documentType.trim().length === 0
+    ) {
+      throw new Error(`${prefix}documentType is required and cannot be empty`);
     }
 
     // Customer validation - either customerId or customerName must be provided
@@ -384,6 +403,34 @@ export const validateStringFormats = (
       }
     }
 
+    // Classification validation
+    if (sale.classification) {
+      const trimmedClassification = sale.classification.trim();
+      if (trimmedClassification.length === 0) {
+        throw new Error(
+          `${prefix}classification cannot be empty or only whitespace`
+        );
+      }
+
+      // Classification should be letters, numbers, spaces, and common punctuation
+      const validClassificationPattern = /^[a-zA-Z0-9\s\-_.,&()]+$/;
+      if (!validClassificationPattern.test(trimmedClassification)) {
+        throw new Error(`${prefix}classification contains invalid characters`);
+      }
+
+      // Check for consecutive spaces
+      if (trimmedClassification.includes("  ")) {
+        throw new Error(
+          `${prefix}classification cannot contain consecutive spaces`
+        );
+      }
+
+      // Check length limit
+      if (trimmedClassification.length > 50) {
+        throw new Error(`${prefix}classification cannot exceed 50 characters`);
+      }
+    }
+
     // Area code validation
     if (sale.areaCode) {
       const trimmedAreaCode = sale.areaCode.trim();
@@ -577,7 +624,7 @@ export const validateDatabaseConstraints = async (
     }
   }
 
-  // Validate inventory availability for each sale
+  // Validate inventory availability for each sale individually
   salesArray.forEach((sale, index) => {
     const prefix = salesArray.length > 1 ? `Sale ${index + 1}: ` : "";
     const inventoryItem = inventoryItems.find(
@@ -607,12 +654,15 @@ export const validateDatabaseConstraints = async (
       );
     }
 
-    // Check stock availability
+    // Check individual stock availability
     if (inventoryItem.currentQuantity < sale.quantity) {
       throw new Error(
         `${prefix}Insufficient stock. Available: ${inventoryItem.currentQuantity}, Requested: ${sale.quantity}`
       );
     }
+
+    // Note: Cumulative inventory validation for multiple sales targeting the same item
+    // is handled within the transaction in create_bulk.service.ts to prevent race conditions
 
     // Validate discount doesn't exceed item value
     const itemValue = inventoryItem.retailPrice.mul(sale.quantity);
@@ -631,6 +681,14 @@ export const validateDatabaseConstraints = async (
     if (amountPaid.gt(maxAllowedPayment)) {
       throw new Error(
         `${prefix}Amount paid cannot exceed 110% of the final price`
+      );
+    }
+
+    // Validate that balance will not be negative
+    const balance = finalPrice.minus(amountPaid);
+    if (balance.lt(0)) {
+      throw new Error(
+        `${prefix}Amount paid cannot exceed the final price. Balance cannot be negative`
       );
     }
   });
@@ -744,6 +802,7 @@ export const sanitizeSalesData = (
     return {
       ...sale,
       customerName: sale.customerName?.trim(),
+      classification: sale.classification?.trim().toUpperCase(),
       invoiceNumber: sale.invoiceNumber?.trim(),
       documentType: sale.documentType?.trim(),
       transactionGroup: sale.transactionGroup?.trim(),

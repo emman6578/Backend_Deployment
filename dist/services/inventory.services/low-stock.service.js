@@ -12,13 +12,30 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.low_stock_products_list = void 0;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
-const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField = "currentQuantity", sortOrder = "asc") {
+const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField = "currentQuantity", sortOrder = "asc", dateFrom, // Add date from filter parameter
+dateTo // Add date to filter parameter
+) {
     const now = new Date();
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
+    // Parse date filters if provided
+    const parsedDateFrom = dateFrom ? new Date(dateFrom) : null;
+    const parsedDateTo = dateTo ? new Date(dateTo) : null;
+    // Validate date filters
+    if (parsedDateFrom && parsedDateTo && parsedDateFrom > parsedDateTo) {
+        throw new Error("Date from cannot be greater than date to");
+    }
     // Step 1: Fetch all batches with related data
     const allBatches = yield prisma.inventoryBatch.findMany({
-        include: {
+        select: {
+            id: true,
+            batchNumber: true,
+            referenceNumber: true,
+            invoiceNumber: true,
+            dt: true, // Include document type field
+            invoiceDate: true,
+            manufacturingDate: true,
+            expiryDate: true,
             supplier: { select: { name: true } },
             district: { select: { name: true } },
             items: {
@@ -50,9 +67,11 @@ const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], vo
         if (validItems.length === 0)
             return null;
         return {
+            id: batch.id, // Add this line
             batchNumber: batch.batchNumber,
             referenceNumber: batch.referenceNumber,
             invoiceNumber: batch.invoiceNumber,
+            dt: batch.dt, // Add this line
             invoiceDate: batch.invoiceDate,
             manufacturingDate: batch.manufacturingDate,
             expiryDate: batch.expiryDate,
@@ -74,28 +93,53 @@ const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], vo
         .filter((batch) => batch !== null);
     // Step 3: Apply search filter
     const searchedBatches = lowStockBatches.filter((batch) => {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e;
         if (!search)
             return true;
         const s = search.toLowerCase();
         // Search in batch fields
         const batchMatch = (_a = batch.batchNumber) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes(s);
         const refNumMatch = (_b = batch.referenceNumber) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes(s);
-        const supplierMatch = (_c = batch.supplier) === null || _c === void 0 ? void 0 : _c.toLowerCase().includes(s);
-        const districtMatch = (_d = batch.district) === null || _d === void 0 ? void 0 : _d.toLowerCase().includes(s);
+        const dtMatch = (_c = batch.dt) === null || _c === void 0 ? void 0 : _c.toLowerCase().includes(s); // Add document type search
+        const supplierMatch = (_d = batch.supplier) === null || _d === void 0 ? void 0 : _d.toLowerCase().includes(s);
+        const districtMatch = (_e = batch.district) === null || _e === void 0 ? void 0 : _e.toLowerCase().includes(s);
         // Search in item fields
         const itemMatch = batch.items.some((item) => [item.generic, item.brand, item.company, ...item.categories].some((field // Modified this line
         ) => field === null || field === void 0 ? void 0 : field.toLowerCase().includes(s)));
-        return (batchMatch || supplierMatch || districtMatch || itemMatch || refNumMatch);
+        return (batchMatch ||
+            supplierMatch ||
+            districtMatch ||
+            itemMatch ||
+            refNumMatch ||
+            dtMatch);
+    });
+    // Step 3.5: Apply date filters using only invoice date
+    const dateFilteredBatches = searchedBatches.filter((batch) => {
+        // If no date filters provided, include all batches
+        if (!parsedDateFrom && !parsedDateTo)
+            return true;
+        const batchInvoiceDate = batch.invoiceDate
+            ? new Date(batch.invoiceDate)
+            : null;
+        // Check if invoice date falls within the filter range
+        const checkDateInRange = (date) => {
+            if (!date)
+                return false;
+            const isAfterFrom = !parsedDateFrom || date >= parsedDateFrom;
+            const isBeforeTo = !parsedDateTo || date <= parsedDateTo;
+            return isAfterFrom && isBeforeTo;
+        };
+        // Include batch if invoice date falls within the filter range
+        return checkDateInRange(batchInvoiceDate);
     });
     // Step 4: Flatten items for proper sorting and pagination
-    const flattenedItems = searchedBatches.flatMap((batch) => batch.items.map((item) => {
+    const flattenedItems = dateFilteredBatches.flatMap((batch) => batch.items.map((item) => {
         var _a, _b, _c, _d, _e, _f;
         return (Object.assign(Object.assign({}, item), { costPrice: typeof item.costPrice === "object" && "toNumber" in item.costPrice
                 ? item.costPrice.toNumber()
                 : Number(item.costPrice), retailPrice: typeof item.retailPrice === "object" && "toNumber" in item.retailPrice
                 ? item.retailPrice.toNumber()
-                : Number(item.retailPrice), batchNumber: (_a = batch.batchNumber) !== null && _a !== void 0 ? _a : "", referenceNumber: (_b = batch.referenceNumber) !== null && _b !== void 0 ? _b : "", invoiceNumber: (_c = batch.invoiceNumber) !== null && _c !== void 0 ? _c : "", invoiceDate: batch.invoiceDate, manufacturingDate: (_d = batch.manufacturingDate) !== null && _d !== void 0 ? _d : new Date(0), expiryDate: batch.expiryDate, supplier: (_e = batch.supplier) !== null && _e !== void 0 ? _e : "", district: (_f = batch.district) !== null && _f !== void 0 ? _f : "", categories: item.categories || [] }));
+                : Number(item.retailPrice), batchId: batch.id, batchNumber: (_a = batch.batchNumber) !== null && _a !== void 0 ? _a : "", referenceNumber: (_b = batch.referenceNumber) !== null && _b !== void 0 ? _b : "", invoiceNumber: (_c = batch.invoiceNumber) !== null && _c !== void 0 ? _c : "", dt: batch.dt, invoiceDate: batch.invoiceDate, manufacturingDate: (_d = batch.manufacturingDate) !== null && _d !== void 0 ? _d : new Date(0), expiryDate: batch.expiryDate, supplier: (_e = batch.supplier) !== null && _e !== void 0 ? _e : "", district: (_f = batch.district) !== null && _f !== void 0 ? _f : "", categories: item.categories || [] }));
     }));
     // Step 5: Sort the flattened items
     const allowedSortFields = [
@@ -108,7 +152,9 @@ const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], vo
         "company",
         "supplier",
         "district",
+        "batchId", // Add batch ID to sortable fields
         "batchNumber",
+        "dt", // Add document type to sortable fields
         "invoiceDate",
         "manufacturingDate",
         "expiryDate",
@@ -169,9 +215,11 @@ const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], vo
         }
         else {
             acc.push({
+                id: item.batchId, // Add this line
                 batchNumber: item.batchNumber,
                 referenceNumber: item.referenceNumber,
                 invoiceNumber: item.invoiceNumber,
+                dt: item.dt, // Add this line
                 invoiceDate: item.invoiceDate,
                 manufacturingDate: item.manufacturingDate,
                 expiryDate: item.expiryDate,
@@ -236,6 +284,8 @@ const low_stock_products_list = (...args_1) => __awaiter(void 0, [...args_1], vo
             search,
             sortField,
             sortOrder,
+            dateFrom,
+            dateTo,
         },
     };
 });

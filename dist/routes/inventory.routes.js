@@ -15,6 +15,7 @@ router.get("/expired", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.
 router.get("/low-stock-products", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), inventory_controller_1.lowStockProducts);
 //Inventory Movement Routes========================================================================================================================
 router.get("/inventory-movement", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), inventory_controller_1.inventoryMovementREAD);
+router.get("/inventory-movement-grouped-by-batch", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), inventory_controller_1.inventoryMovementGroupedByBatch);
 //=================================================================================================================================================
 router.get("/:id", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), inventory_controller_1.readById);
 router.get("/product/:id", authMiddleware_1.authenticateToken, (0, roleMiddleware_1.authorizeRoles)(["SUPERADMIN", "ADMIN"]), inventory_controller_1.readInventoryToUpdate);

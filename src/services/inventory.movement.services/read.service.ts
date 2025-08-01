@@ -44,10 +44,14 @@ export const inventory_movement_list = async (
   if (dateFrom || dateTo) {
     baseConditions.createdAt = {};
     if (dateFrom) {
-      baseConditions.createdAt.gte = new Date(dateFrom);
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      baseConditions.createdAt.gte = fromDate;
     }
     if (dateTo) {
-      baseConditions.createdAt.lte = new Date(dateTo);
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      baseConditions.createdAt.lte = toDate;
     }
   }
 

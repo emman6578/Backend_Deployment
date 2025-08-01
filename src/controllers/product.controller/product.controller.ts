@@ -223,16 +223,80 @@ export const read = expressAsyncHandler(
     successHandler(result, res, "GET", "Products fetched successfully");
   }
 );
+
+export const readProductTransactionSummary = expressAsyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { id: idParam } = req.params;
+    const productId = parseInt(idParam, 10);
+    if (!productId || isNaN(productId)) {
+      throw new Error("Valid product ID is required");
+    }
+
+    // Fetch all transactions for this product
+    const transactions = await prisma.productTransaction.findMany({
+      where: { productId },
+      include: {
+        user: { select: { id: true, fullname: true } },
+      },
+      orderBy: { transactionDate: "asc" },
+    });
+
+    // Prepare summary
+    let totalIn = 0;
+    let totalOut = 0;
+    const typeSummary: Record<
+      string,
+      { count: number; quantityIn: number; quantityOut: number }
+    > = {};
+
+    transactions.forEach((tx, idx) => {
+      if (tx.quantityIn) totalIn += tx.quantityIn;
+      if (tx.quantityOut) totalOut += tx.quantityOut;
+      if (!typeSummary[tx.transactionType]) {
+        typeSummary[tx.transactionType] = {
+          count: 0,
+          quantityIn: 0,
+          quantityOut: 0,
+        };
+      }
+      typeSummary[tx.transactionType].count++;
+      if (tx.quantityIn)
+        typeSummary[tx.transactionType].quantityIn += tx.quantityIn;
+      if (tx.quantityOut)
+        typeSummary[tx.transactionType].quantityOut += tx.quantityOut;
+    });
+
+    const summary = {
+      productId,
+      totalTransactions: transactions.length,
+      totalIn,
+      totalOut,
+    };
+
+    successHandler(
+      summary,
+      res,
+      "GET",
+      "Product Transaction Summary fetched successfully"
+    );
+  }
+);
 // READ Single Product by ID with comprehensive information
 export const readById = expressAsyncHandler(
   async (req: Request, res: Response) => {
     const { id: idParam } = req.params;
-    const { page = "1", limit = "10" } = req.query;
+    const { page = "1", limit = "10", dateFrom, dateTo } = req.query;
 
     const pageNumber = parseInt(page as string);
     const limitNumber = parseInt(limit as string);
 
-    const product = await readByid(parseInt(idParam), pageNumber, limitNumber);
+    const product = await readByid(
+      parseInt(idParam),
+      pageNumber,
+      limitNumber,
+      dateFrom as string,
+      dateTo as string
+    );
 
     successHandler(
       product,

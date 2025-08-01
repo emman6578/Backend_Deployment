@@ -25,10 +25,18 @@ const prisma = new client_1.PrismaClient({
     },
 });
 const expired_products_list = (params) => __awaiter(void 0, void 0, void 0, function* () {
-    const { page, itemsPerPage, search } = params;
+    const { page, itemsPerPage, search, dateFrom, dateTo } = params;
     const today = new Date();
+    // Build date filter conditions
+    const dateFilter = {};
+    if (dateFrom) {
+        dateFilter.gte = new Date(dateFrom);
+    }
+    if (dateTo) {
+        dateFilter.lte = new Date(dateTo);
+    }
     // Build dynamic `where` filter
-    const where = Object.assign({ expiryDate: { lt: today, not: undefined } }, (search && {
+    const where = Object.assign({ expiryDate: Object.assign({ lt: today, not: undefined }, (Object.keys(dateFilter).length > 0 && dateFilter)) }, (search && {
         OR: [{ batchNumber: { contains: search } }],
     }));
     // Run both count and paginated query in a transaction

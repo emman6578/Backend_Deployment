@@ -22,6 +22,7 @@ model Sales {
   customer       Customer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
   customerId     Int?
   customerName   String?   // For walk-in customers without customer record
+  classification String?   // Government, Private etc.
   
   // Location and Territory
   district       District  @relation(fields: [districtId], references: [id], onDelete: Restrict)

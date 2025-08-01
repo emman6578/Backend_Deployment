@@ -31,34 +31,65 @@ const prisma = new client_1.PrismaClient({
         },
     },
 });
-const purchase_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", status = "ALL") {
+const purchase_list = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (page = 1, limit = 10, search = "", sortField, sortOrder = "desc", status = "ALL", dateFrom, dateTo) {
     const skip = (page - 1) * limit;
     const isVerificationStatus = status === "VERIFIED" || status === "UNVERIFIED";
     const isAllStatus = status === "ALL" || status === ""; // New: check for "ALL" status
     // Build the where clause conditionally
     let whereClause = {};
+    // Date filtering
+    if (dateFrom || dateTo) {
+        whereClause.createdAt = {};
+        if (dateFrom) {
+            const fromDate = new Date(dateFrom);
+            fromDate.setHours(0, 0, 0, 0);
+            whereClause.createdAt.gte = fromDate;
+        }
+        if (dateTo) {
+            const toDate = new Date(dateTo);
+            toDate.setHours(23, 59, 59, 999);
+            whereClause.createdAt.lte = toDate;
+        }
+    }
     if (!isAllStatus) {
         // Only apply status filtering if not "ALL"
         if (isVerificationStatus) {
             // For verification status, we filter by verifiedBy/verificationDate presence
-            whereClause =
-                status === "VERIFIED"
-                    ? {
-                        AND: [
-                            { verifiedBy: { not: null } },
-                            { verificationDate: { not: null } },
-                        ],
-                    }
-                    : {
-                        OR: [{ verifiedBy: null }, { verificationDate: null }],
-                    };
+            const statusFilter = status === "VERIFIED"
+                ? {
+                    AND: [
+                        { verifiedBy: { not: null } },
+                        { verificationDate: { not: null } },
+                    ],
+                }
+                : {
+                    OR: [{ verifiedBy: null }, { verificationDate: null }],
+                };
+            // Combine date filter with status filter
+            if (dateFrom || dateTo) {
+                whereClause = {
+                    AND: [whereClause, statusFilter],
+                };
+            }
+            else {
+                whereClause = statusFilter;
+            }
         }
         else {
             // For regular status, filter by PurchaseStatus enum
-            whereClause = { status: status };
+            const statusFilter = { status: status };
+            // Combine date filter with status filter
+            if (dateFrom || dateTo) {
+                whereClause = {
+                    AND: [whereClause, statusFilter],
+                };
+            }
+            else {
+                whereClause = statusFilter;
+            }
         }
     }
-    // If isAllStatus is true, whereClause remains empty object {}
+    // If isAllStatus is true and no date filters, whereClause remains empty object {}
     // Step 1: Fetch everything (with joins)
     const allInventories = yield prisma.purchase.findMany({
         where: whereClause,

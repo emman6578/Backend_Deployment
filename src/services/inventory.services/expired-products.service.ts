@@ -19,6 +19,8 @@ interface ExpiredProductsParams {
   itemsPerPage: number;
   search: string;
   userId: number;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 interface ExpiredProductsResult {
@@ -45,12 +47,27 @@ interface ExpiredProductsResult {
 export const expired_products_list = async (
   params: ExpiredProductsParams
 ): Promise<ExpiredProductsResult> => {
-  const { page, itemsPerPage, search } = params;
+  const { page, itemsPerPage, search, dateFrom, dateTo } = params;
   const today = new Date();
+
+  // Build date filter conditions
+  const dateFilter: Prisma.DateTimeFilter = {};
+
+  if (dateFrom) {
+    dateFilter.gte = new Date(dateFrom);
+  }
+
+  if (dateTo) {
+    dateFilter.lte = new Date(dateTo);
+  }
 
   // Build dynamic `where` filter
   const where: Prisma.InventoryBatchWhereInput = {
-    expiryDate: { lt: today, not: undefined },
+    expiryDate: {
+      lt: today,
+      not: undefined,
+      ...(Object.keys(dateFilter).length > 0 && dateFilter),
+    },
 
     // only add OR search if user provided a non-empty `search`
     ...(search && {

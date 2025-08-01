@@ -39,6 +39,9 @@ dotenv.config();
 const server = express();
 const port = process.env.PORT || 3001;
 
+// Trust proxy - needed when behind a reverse proxy (like on Render, Heroku, etc.)
+server.set("trust proxy", 1);
+
 //middlewares
 server.use(express.json());
 

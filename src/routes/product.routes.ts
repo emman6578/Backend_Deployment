@@ -3,6 +3,7 @@ import {
   read,
   readById,
   readProductToUpdate,
+  readProductTransactionSummary,
   update,
 } from "@controllers/product.controller/product.controller";
 import { authenticateToken } from "@middlewares/authMiddleware";
@@ -30,6 +31,13 @@ router.get(
   authenticateToken,
   authorizeRoles(["SUPERADMIN", "ADMIN"]),
   read
+);
+
+router.get(
+  "/transaction-summary/:id",
+  authenticateToken,
+  authorizeRoles(["SUPERADMIN", "ADMIN"]),
+  readProductTransactionSummary
 );
 
 router.get(

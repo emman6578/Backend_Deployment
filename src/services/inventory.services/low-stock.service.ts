@@ -15,9 +15,11 @@ export interface LowStockItem {
 }
 
 export interface LowStockBatch {
+  id: number; // Add batch ID field
   batchNumber: string;
   referenceNumber: string;
   invoiceNumber: string;
+  dt: string | null; // Add document type field
   invoiceDate: Date;
   manufacturingDate: Date;
   expiryDate: Date;
@@ -27,9 +29,11 @@ export interface LowStockBatch {
 }
 
 export interface FlattenedLowStockItem extends LowStockItem {
+  batchId: number; // Add batch ID field
   batchNumber: string;
   referenceNumber: string;
   invoiceNumber: string;
+  dt: string | null; // Add document type field
   invoiceDate: Date;
   manufacturingDate: Date;
   expiryDate: Date;
@@ -43,15 +47,34 @@ export const low_stock_products_list = async (
   limit: number = 10,
   search: string = "",
   sortField: string = "currentQuantity",
-  sortOrder: "asc" | "desc" = "asc"
+  sortOrder: "asc" | "desc" = "asc",
+  dateFrom?: string, // Add date from filter parameter
+  dateTo?: string // Add date to filter parameter
 ) => {
   const now = new Date();
   const startIndex = (page - 1) * limit;
   const endIndex = page * limit;
 
+  // Parse date filters if provided
+  const parsedDateFrom = dateFrom ? new Date(dateFrom) : null;
+  const parsedDateTo = dateTo ? new Date(dateTo) : null;
+
+  // Validate date filters
+  if (parsedDateFrom && parsedDateTo && parsedDateFrom > parsedDateTo) {
+    throw new Error("Date from cannot be greater than date to");
+  }
+
   // Step 1: Fetch all batches with related data
   const allBatches = await prisma.inventoryBatch.findMany({
-    include: {
+    select: {
+      id: true,
+      batchNumber: true,
+      referenceNumber: true,
+      invoiceNumber: true,
+      dt: true, // Include document type field
+      invoiceDate: true,
+      manufacturingDate: true,
+      expiryDate: true,
       supplier: { select: { name: true } },
       district: { select: { name: true } },
       items: {
@@ -86,9 +109,11 @@ export const low_stock_products_list = async (
       if (validItems.length === 0) return null;
 
       return {
+        id: batch.id, // Add this line
         batchNumber: batch.batchNumber,
         referenceNumber: batch.referenceNumber,
         invoiceNumber: batch.invoiceNumber,
+        dt: batch.dt, // Add this line
         invoiceDate: batch.invoiceDate,
         manufacturingDate: batch.manufacturingDate,
         expiryDate: batch.expiryDate,
@@ -118,6 +143,7 @@ export const low_stock_products_list = async (
     // Search in batch fields
     const batchMatch = batch.batchNumber?.toLowerCase().includes(s);
     const refNumMatch = batch.referenceNumber?.toLowerCase().includes(s);
+    const dtMatch = batch.dt?.toLowerCase().includes(s); // Add document type search
 
     const supplierMatch = batch.supplier?.toLowerCase().includes(s);
     const districtMatch = batch.district?.toLowerCase().includes(s);
@@ -132,12 +158,40 @@ export const low_stock_products_list = async (
     );
 
     return (
-      batchMatch || supplierMatch || districtMatch || itemMatch || refNumMatch
+      batchMatch ||
+      supplierMatch ||
+      districtMatch ||
+      itemMatch ||
+      refNumMatch ||
+      dtMatch
     );
   });
 
+  // Step 3.5: Apply date filters using only invoice date
+  const dateFilteredBatches = searchedBatches.filter((batch) => {
+    // If no date filters provided, include all batches
+    if (!parsedDateFrom && !parsedDateTo) return true;
+
+    const batchInvoiceDate = batch.invoiceDate
+      ? new Date(batch.invoiceDate)
+      : null;
+
+    // Check if invoice date falls within the filter range
+    const checkDateInRange = (date: Date | null) => {
+      if (!date) return false;
+
+      const isAfterFrom = !parsedDateFrom || date >= parsedDateFrom;
+      const isBeforeTo = !parsedDateTo || date <= parsedDateTo;
+
+      return isAfterFrom && isBeforeTo;
+    };
+
+    // Include batch if invoice date falls within the filter range
+    return checkDateInRange(batchInvoiceDate);
+  });
+
   // Step 4: Flatten items for proper sorting and pagination
-  const flattenedItems: FlattenedLowStockItem[] = searchedBatches.flatMap(
+  const flattenedItems: FlattenedLowStockItem[] = dateFilteredBatches.flatMap(
     (batch) =>
       batch.items.map((item) => ({
         ...item,
@@ -149,9 +203,11 @@ export const low_stock_products_list = async (
           typeof item.retailPrice === "object" && "toNumber" in item.retailPrice
             ? (item.retailPrice as any).toNumber()
             : Number(item.retailPrice),
+        batchId: batch.id, // Add this line
         batchNumber: batch.batchNumber ?? "",
         referenceNumber: batch.referenceNumber ?? "",
         invoiceNumber: batch.invoiceNumber ?? "",
+        dt: batch.dt, // Add this line
         invoiceDate: batch.invoiceDate,
         manufacturingDate: batch.manufacturingDate ?? new Date(0),
         expiryDate: batch.expiryDate,
@@ -172,7 +228,9 @@ export const low_stock_products_list = async (
     "company",
     "supplier",
     "district",
+    "batchId", // Add batch ID to sortable fields
     "batchNumber",
+    "dt", // Add document type to sortable fields
     "invoiceDate",
     "manufacturingDate",
     "expiryDate",
@@ -246,9 +304,11 @@ export const low_stock_products_list = async (
       existingBatch.items.push(itemData);
     } else {
       acc.push({
+        id: item.batchId, // Add this line
         batchNumber: item.batchNumber,
         referenceNumber: item.referenceNumber,
         invoiceNumber: item.invoiceNumber,
+        dt: item.dt, // Add this line
         invoiceDate: item.invoiceDate,
         manufacturingDate: item.manufacturingDate,
         expiryDate: item.expiryDate,
@@ -328,6 +388,8 @@ export const low_stock_products_list = async (
       search,
       sortField,
       sortOrder,
+      dateFrom,
+      dateTo,
     },
   };
 };

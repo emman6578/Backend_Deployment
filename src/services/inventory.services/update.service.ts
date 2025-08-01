@@ -244,20 +244,28 @@ export const inventory_update = async (
 
           updatedItems.push(updatedItem);
 
-          // Create inventory movement record for quantity changes
+          // Handle current quantity changes (affects actual inventory)
           if (
             itemData.currentQuantity !== undefined &&
             itemData.currentQuantity !== existingItem.currentQuantity
           ) {
             const quantityDifference =
               itemData.currentQuantity - existingItem.currentQuantity;
+
+            // Determine movement type based on direction
+            const movementType = "ADJUSTMENT";
+            const reason =
+              quantityDifference > 0
+                ? `Stock adjustment - quantity increased`.trim()
+                : `Stock adjustment - quantity decreased`.trim();
+
+            // Create movement record
             await tx.inventoryMovement.create({
               data: {
                 inventoryItemId: existingItem.id,
-                movementType: quantityDifference > 0 ? "INBOUND" : "ADJUSTMENT",
+                movementType,
                 quantity: quantityDifference,
-                reason:
-                  itemData.lastUpdateReason || "Inventory update adjustment",
+                reason,
                 previousQuantity: existingItem.currentQuantity,
                 newQuantity: itemData.currentQuantity,
                 createdById: updateData.updatedById,
@@ -265,16 +273,16 @@ export const inventory_update = async (
               },
             });
 
+            // Create product transaction for inventory-affecting changes
             await tx.productTransaction.create({
               data: {
                 referenceNumber: existingBatch.referenceNumber,
                 productId: existingItem.productId,
                 transactionType: "INVENTORY_ADJUSTMENT",
-                userId: parseInt(userId), // Should be updateData.updatedById
-                sourceModel: "InventoryItem", // Remove space
+                userId: parseInt(userId),
+                sourceModel: "InventoryItem",
                 sourceId: existingItem.id,
                 description: `Inventory adjustment - Batch: ${existingBatch.batchNumber}, Product: ${existingItem.product.generic.name} ${existingItem.product.brand.name}`,
-                // Fix the quantity logic - track the actual change
                 quantityIn:
                   quantityDifference > 0 ? quantityDifference : undefined,
                 quantityOut:
@@ -285,46 +293,73 @@ export const inventory_update = async (
                 retailPrice: itemData.retailPrice ?? existingItem.retailPrice,
               },
             });
+          }
 
-            const product = await tx.product.findUnique({
-              where: { id: existingItem.productId },
-              select: {
-                id: true,
-                safetyStock: true,
-                generic: { select: { name: true } },
-                brand: { select: { name: true } },
+          // // Handle initial quantity changes (audit trail only - doesn't affect current inventory)
+          // if (
+          //   itemData.initialQuantity !== undefined &&
+          //   itemData.initialQuantity !== existingItem.initialQuantity
+          // ) {
+          //   // Create movement record for audit trail only
+          //   await tx.inventoryMovement.create({
+          //     data: {
+          //       inventoryItemId: existingItem.id,
+          //       movementType: "ADJUSTMENT",
+          //       quantity: 0,
+          //       reason:
+          //         `Initial quantity correction (historical record)`.trim(),
+          //       previousQuantity: existingItem.initialQuantity,
+          //       newQuantity: itemData.initialQuantity ?? 0,
+          //       createdById: updateData.updatedById,
+          //       referenceId: existingBatch.referenceNumber,
+          //     },
+          //   });
+
+          //   // NO product transaction for initial quantity changes (doesn't affect current inventory)
+          // }
+
+          const product = await tx.product.findUnique({
+            where: { id: existingItem.productId },
+            select: {
+              id: true,
+              safetyStock: true,
+              generic: { select: { name: true } },
+              brand: { select: { name: true } },
+            },
+          });
+
+          if (
+            product &&
+            itemData.currentQuantity &&
+            itemData.currentQuantity < product.safetyStock
+          ) {
+            // Create LOW_STOCK transaction
+            await tx.productTransaction.create({
+              data: {
+                referenceNumber: existingBatch.referenceNumber,
+                productId: existingItem.productId,
+                transactionType: "LOW_STOCK",
+                userId: parseInt(userId),
+                sourceModel: "InventoryItem",
+                sourceId: existingItem.id,
+                description: `Low stock alert - Batch: ${existingBatch.batchNumber}, Product: ${product.generic.name} ${product.brand.name}, Current Stock: ${itemData.currentQuantity}, Safety Stock: ${product.safetyStock}`,
+                quantityIn: undefined,
+                quantityOut: undefined,
+                costPrice: itemData.costPrice ?? existingItem.costPrice,
+                retailPrice: itemData.retailPrice ?? existingItem.retailPrice,
               },
             });
 
-            if (product && itemData.currentQuantity < product.safetyStock) {
-              // Create LOW_STOCK transaction
-              await tx.productTransaction.create({
-                data: {
-                  referenceNumber: existingBatch.referenceNumber,
-                  productId: existingItem.productId,
-                  transactionType: "LOW_STOCK",
-                  userId: parseInt(userId),
-                  sourceModel: "InventoryItem",
-                  sourceId: existingItem.id,
-                  description: `Low stock alert - Batch: ${existingBatch.batchNumber}, Product: ${product.generic.name} ${product.brand.name}, Current Stock: ${itemData.currentQuantity}, Safety Stock: ${product.safetyStock}`,
-                  quantityIn: undefined,
-                  quantityOut: undefined,
-                  costPrice: itemData.costPrice ?? existingItem.costPrice,
-                  retailPrice: itemData.retailPrice ?? existingItem.retailPrice,
-                },
-              });
-
-              // Optional: Log the low stock event in activity log
-              await tx.activityLog.create({
-                data: {
-                  userId: updateData.updatedById,
-                  model: "Product",
-                  recordId: product.id,
-                  action: "UPDATE",
-                  description: `Low stock alert triggered for ${product.generic.name} ${product.brand.name} - Current: ${itemData.currentQuantity}, Safety: ${product.safetyStock}`,
-                },
-              });
-            }
+            // Optional: Log the low stock event in activity log
+            await tx.activityLog.create({
+              data: {
+                userId: updateData.updatedById,
+                model: "Product",
+                recordId: product.id,
+                action: "UPDATE",
+                description: `Low stock alert triggered for ${product.generic.name} ${product.brand.name} - Current: ${itemData.currentQuantity}, Safety: ${product.safetyStock}`,
+              },
+            });
           }
 
           // Create inventory price change history for price changes
@@ -424,31 +459,8 @@ export const inventory_update = async (
         });
       }
 
-      for (const itemData of updateData.items || []) {
-        const original = await tx.inventoryItem.findFirst({
-          where: { id: itemData.id, batchId },
-          include: { batch: { select: { referenceNumber: true } } },
-        });
-        if (
-          itemData.currentQuantity !== undefined &&
-          original &&
-          itemData.currentQuantity !== original.currentQuantity
-        ) {
-          const qtyDiff = itemData.currentQuantity - original.currentQuantity;
-          await tx.inventoryMovement.create({
-            data: {
-              inventoryItemId: original.id,
-              movementType: qtyDiff > 0 ? "INBOUND" : "ADJUSTMENT",
-              quantity: qtyDiff,
-              reason: itemData.lastUpdateReason || "Batch update adjustment",
-              previousQuantity: original.currentQuantity,
-              newQuantity: itemData.currentQuantity,
-              createdById: updateData.updatedById,
-              referenceId: original.batch.referenceNumber,
-            },
-          });
-        }
-      }
+      // Note: Movement records are now created within the item update loop above
+      // to avoid duplicate movements and ensure proper audit trail
 
       return {
         batch: updatedBatch,
